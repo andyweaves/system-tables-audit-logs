@@ -1,0 +1,89 @@
+{
+  "queries_and_alerts": [
+    {
+      "name": "repeated_failed_login_attempts",
+      "description": "Repeated failed login attempts could indicate an attacker trying to brute force access to your lakehouse. The following query can be used to detect repeated failed login attempts over a 30 minute period. It could easily be adjusted to show all unauthorized attempts for all APIs (I.e. not just logins).",
+      "query": "SELECT WINDOW(event_time, '30 minutes'), action_name, user_identity.email, request_params.user, response.status_code, count(*) AS total FROM system.access.audit WHERE action_name IN ('aadBrowserLogin', 'aadTokenLogin', 'certLogin', 'jwtLogin', 'login', 'oidcBrowserLogin', 'samlLogin', 'tokenLogin') AND response.status_code IN (401, 403) GROUP BY 1, 2, 3, 4, 5 ORDER BY WINDOW DESC",
+      "parent": "system_tables/audit/admin/queries/"
+    },
+    {
+      "name": "changes_to_admin_users",
+      "description": "Databricks account and workspace admins should be limited to a few very trusted individuals responsible for managing the deployment. The granting of new admin privileges should be reviewed. The following query can be used to monitor changes to administrative users.",
+      "query": "SELECT event_date, event_time, workspace_id, user_identity.email, source_ip_address, lower(replace(audit_level, '_LEVEL', '')) AS account_or_workspace, action_name, request_params.targetUserName, request_params.targetGroupName FROM system.access.audit WHERE action_name IN ('setAccountAdmin', 'changeAccountOwner', 'setAdmin', 'removeAdmin') OR (action_name IN  ('addPrincipalToGroup', 'removePrincipalFromGroup') AND request_params.targetGroupName != 'admins') ORDER BY event_time DESC",
+      "parent": "system_tables/audit/admin/queries/"
+    },
+    {
+      "name": "changes_to_workspace_configuration",
+      "description": "Many workspace-level configurations perform a security-enforcing function. The following SQL query can be used to monitor changes in workspace configuration in the last day.",
+      "query": "SELECT event_date, workspace_id, user_identity.email, request_params.workspaceConfKeys, request_params.workspaceConfValues, count(*) AS total FROM system.access.audit WHERE action_name = 'workspaceConfEdit' AND event_date >= current_date() - INTERVAL 1 DAY GROUP BY 1, 2, 3, 4, 5 ORDER BY total DESC",
+      "parent": "system_tables/audit/admin/queries/",
+      "alert": {
+        "name": "changes_to_workspace_configuration",
+        "options": {
+          "column": "total",
+          "custom_body": "{{ALERT_NAME}} changed to {{ALERT_STATUS}}",
+          "custom_subject": "{{QUERY_RESULT_TABLE}}",
+          "muted": false,
+          "op": ">=",
+          "value": "0"
+        },
+        "rearm": "3600",
+        "parent": "system_tables/audit/admin/alerts/"
+      }
+    },
+    {
+      "name": "changes_to_production_workspaces",
+      "description": "Production infrastructure should be managed by automation and therefore changes should not be a surprise. The following SQL query can be used to monitor changes to workspaces or other configurations which contain “prod” in their name. ",
+      "query": "SELECT * FROM (SELECT event_date, event_time, workspace_id, user_identity.email, source_ip_address, action_name, map_filter(map('workspace_name', response.result:workspace.workspace_name, 'network_name', response.result:network.network_name, 'storage_configuration_name', response.result:storage_configuration.storage_configuration_name, 'credentials_name', response.result:credentials.credentials_name, 'key_alias', response.result:customer_managed_key:aws_key_info.key_alias, 'vpc_endpoint_name', response.result:vpc_endpoint.vpc_endpoint_name, 'private_access_settings_name', response.result:private_access_settings.private_access_settings_name), (k, v) -> v IS NOT NULL ) AS resources, response.result FROM system.access.audit WHERE service_name = 'accountsManager' AND (startswith(action_name, 'create') OR startswith(action_name, 'update') OR startswith(action_name, 'delete'))) WHERE EXISTS(map_values(resources), x -> contains(x, 'prod-')) ORDER BY event_time DESC",
+      "parent": "system_tables/audit/admin/queries/"
+    },
+    {
+      "name": "download_data_from_control_plane",
+      "description": "Databricks allows customers to configure whether they want users to be able to download notebook or SQL query results, but some customers might want to monitor and report rather than prevent entirely. The following query can be used to monitor the download of results from notebooks, Databricks SQL, Unity Catalog volumes and MLflow, as well as the exporting of notebooks in formats that may contain query results.",
+      "query": "SELECT event_date, event_time, workspace_id, user_identity.email, source_ip_address, service_name, action_name, request_params FROM system.access.audit WHERE action_name IN ('downloadPreviewResults', 'downloadLargeResults', 'downloadQueryResult', 'filesGet', 'getModelVersionDownloadUri', 'getModelVersionSignedDownloadUri') OR (action_name = 'workspaceExport' AND request_params.workspaceExportFormat !='SOURCE') ORDER BY event_time DESC",
+      "parent": "system_tables/audit/admin/queries/"
+    },
+    {
+      "name": "ip_access_list_failures",
+      "description": "Databricks allows customers to configure IP Access Lists to restrict access to their account & workspaces. However, they may want to monitor and be alerted whenever access is attempted from an untrusted network. The following query can be used to monitor all IpAccessDenied and accountIpAclsValidationFailed events.",
+      "query": "SELECT event_date, event_time, workspace_id, user_identity.email, source_ip_address, action_name, response.error_message, response.status_code, request_params FROM system.access.audit WHERE action_name IN ('IpAccessDenied', 'accountIpAclsValidationFailed') ORDER BY event_time DESC",
+      "parent": "system_tables/audit/admin/queries/"
+    },
+    {
+      "name": "databricks_access_to_customer_workspaces",
+      "description": "This query can be used to detect logins to your workspace via the Databricks support process. This access is tied to a support ticket while also complying with your workspace configuration that may disable such access on AWS or Azure.",
+      "query": "SELECT event_date, event_time, workspace_id, request_params.user, request_params.approver, request_params.duration, request_params.reason FROM system.access.audit WHERE action_name = 'databricksAccess' ORDER BY event_time DESC",
+      "parent": "system_tables/audit/admin/queries/"
+    },
+    {
+      "name": "global_init_script_changes",
+      "description": "Global init scripts run arbitrary code that is executed on every cluster. This can be a very powerful capability but with great power comes great responsibility. The following SQL query can be used to monitor the creation, update and deletion of global init scripts",
+      "query": "SELECT event_date, event_time, workspace_id, user_identity.email, source_ip_address, action_name, request_params.name, request_params.script_id, request_params.enabled, request_params.`script-SHA256`, response.status_code FROM system.access.audit WHERE service_name = 'globalInitScripts' ORDER BY event_time DESC",
+      "parent": "system_tables/audit/admin/queries/"
+    },
+    {
+      "name": "mount_point_creation",
+      "description": "Mount points are considered an anti-pattern because mount points do not have the same strong data governance features as external locations or volumes in Unity Catalog. The following query can be used to monitor mount point creation, such that administrators can be alerted to the creation of mount points to external storages that are not expected.",
+      "query": "SELECT event_date, event_time, workspace_id, user_identity.email, source_ip_address, service_name, action_name, request_params.mountPoint FROM system.access.audit WHERE action_name = 'mount' ORDER BY event_time DESC",
+      "parent": "system_tables/audit/admin/queries/"
+    },
+    {
+      "name": "delta_sharing_recipients_without_ip_acls",
+      "description": "If you’re sharing personal data, delta sharing recipients should always be secured with IP access lists. The following SQL query can be used to monitor the creation or update of delta sharing recipients which do not have IP access lists defined.",
+      "query": "SELECT event_date, event_time, user_identity.email, source_ip_address, service_name, action_name, CASE WHEN request_params.name IS NOT NULL THEN request_params.name WHEN request_params.name_arg IS NOT NULL THEN request_params.name_arg ELSE NULL END AS delta_share, request_params.ip_access_list FROM system.access.audit WHERE action_name IN ('createRecipient', 'updateRecipient') AND request_params.ip_access_list IS NULL ORDER BY event_date DESC",
+      "parent": "system_tables/audit/admin/queries/"
+    },
+    {
+      "name": "use_of_print_statements",
+      "description": "Databricks supports verbose audit logging, which can be useful in highly regulated environments in which all commands run interactively by a user must be recorded. Verbose audit logs can also be useful for monitoring compliance with coding standards. For example, let's suppose your organization has a policy that print() statements should not be used, the following SQL query could be used to monitor compliance with such a policy.",
+      "query": "SELECT event_date, event_time, workspace_id, user_identity.email, source_ip_address, service_name, request_params.commandLanguage, request_params.commandText, request_params.executionTime, request_params.status, request_params.clusterId,request_params.notebookId, response.status_code, response.error_message FROM system.access.audit WHERE action_name = 'runCommand' AND request_params.commandText rlike 'print[/s]?(?! e)(.)+' ORDER BY event_time DESC",
+      "parent": "system_tables/audit/admin/queries/"
+    },
+    {
+      "name": "clam_av_infected_files_detected",
+      "description": "Customers using one of our compliance security profile offerings have additional monitoring agents including antivirus installed on their data plane hosts. The following query can be used to monitor all antivirus scan events during which infected files have been detected.",
+      "query": "SELECT event_date, event_time, workspace_id, request_params.instanceId, regexp_extract(response.result, ('Infected files: (\\d+)')) AS infected_files FROM system.access.audit WHERE service_name = 'clamAVScanService-dataplane' AND startswith(response.result, 'Infected files:') AND regexp_extract(response.result, ('Infected files: (\\d+)')) >= 1 ORDER BY event_time DESC",
+      "parent": "system_tables/audit/compliance_security_profile/queries/"
+    }
+  ]
+}
