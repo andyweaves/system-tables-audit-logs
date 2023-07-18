@@ -13,7 +13,7 @@
           "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
           "muted": false,
           "op": ">",
-          "value": 0
+          "value": "0"
         },
         "rearm": "3600",
         "parent": "system_tables/audit/admin/alerts/"
@@ -32,7 +32,7 @@
           "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
           "muted": false,
           "op": ">",
-          "value": 0
+          "value": "0"
         },
         "rearm": "3600",
         "parent": "system_tables/audit/admin/alerts/"
@@ -51,7 +51,7 @@
           "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
           "muted": false,
           "op": ">",
-          "value": 0
+          "value": "0"
         },
         "rearm": "3600",
         "parent": "system_tables/audit/admin/alerts/"
@@ -70,7 +70,7 @@
           "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
           "muted": false,
           "op": ">",
-          "value": 0
+          "value": "0"
         },
         "rearm": "3600",
         "parent": "system_tables/audit/admin/alerts/"
@@ -89,7 +89,7 @@
           "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
           "muted": false,
           "op": ">",
-          "value": 0
+          "value": "0"
         },
         "rearm": "3600",
         "parent": "system_tables/audit/admin/alerts/"
@@ -108,7 +108,7 @@
           "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
           "muted": false,
           "op": ">",
-          "value": 0
+          "value": "0"
         },
         "rearm": "3600",
         "parent": "system_tables/audit/admin/alerts/"
@@ -127,7 +127,7 @@
           "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
           "muted": false,
           "op": ">",
-          "value": 0
+          "value": "0"
         },
         "rearm": "3600",
         "parent": "system_tables/audit/admin/alerts/"
@@ -146,7 +146,7 @@
           "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
           "muted": false,
           "op": ">",
-          "value": 0
+          "value": "0"
         },
         "rearm": "3600",
         "parent": "system_tables/audit/admin/alerts/"
@@ -165,7 +165,7 @@
           "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
           "muted": false,
           "op": ">",
-          "value": 0
+          "value": "0"
         },
         "rearm": "3600",
         "parent": "system_tables/audit/admin/alerts/"
@@ -184,7 +184,7 @@
           "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
           "muted": false,
           "op": ">",
-          "value": 0
+          "value": "0"
         },
         "rearm": "3600",
         "parent": "system_tables/audit/admin/alerts/"
@@ -203,10 +203,10 @@
           "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
           "muted": false,
           "op": ">",
-          "value": 0
+          "value": "0"
         },
         "rearm": "3600",
-        "parent": "system_tables/audit/security_and_compliance/alerts/"
+        "parent": "system_tables/audit/compliance_security_profile/alerts/"
       }
     }
   ]
