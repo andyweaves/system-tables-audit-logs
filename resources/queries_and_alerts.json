@@ -60,7 +60,7 @@
     {
       "name": "download_data_from_control_plane",
       "description": "Databricks allows customers to configure whether they want users to be able to download notebook or SQL query results, but some customers might want to monitor and report rather than prevent entirely. The following query can be used to detect the download of results from notebooks, Databricks SQL, Unity Catalog volumes and MLflow, as well as the exporting of notebooks in formats that may contain query results within the last 24 hours.",
-      "query": "SELECT event_time, workspace_id, user_identity.email, service_name, action_name, count(*) AS total FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND (action_name IN ('downloadPreviewResults', 'downloadLargeResults', 'downloadQueryResult', 'filesGet', 'getModelVersionDownloadUri', 'getModelVersionSignedDownloadUri') OR (action_name = 'workspaceExport'AND request_params.workspaceExportFormat != 'SOURCE')) GROUP BY 1, 2, 3, 4, 5 ORDER BY event_time DESC",
+      "query": "SELECT event_time, workspace_id, user_identity.email, service_name, action_name, count(*) AS total FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND (action_name IN ('downloadPreviewResults', 'downloadLargeResults', 'filesGet', 'getModelVersionDownloadUri', 'getModelVersionSignedDownloadUri') OR (action_name = 'workspaceExport' AND request_params.workspaceExportFormat != 'SOURCE') OR (action_name = 'downloadQueryResult' AND request_params.fileType != 'arrows')) GROUP BY 1, 2, 3, 4, 5 ORDER BY event_time DESC",
       "parent": "system_tables/audit/admin/queries/",
       "alert": {
         "name": "download_data_from_control_plane",
@@ -200,6 +200,82 @@
         "options": {
           "column": "infected_files",
           "custom_body": "<h3>There have been the following infected files detected by ClamAV within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
+          "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
+          "muted": false,
+          "op": ">",
+          "value": "0"
+        },
+        "rearm": "3600",
+        "parent": "system_tables/audit/compliance_security_profile/alerts/"
+      }
+    },
+    {
+      "name": "capsule8_container_breakout_events",
+      "description": "User code runs in low-privileged containers. A container escape could compromise the security of the cluster especially when running with user isolation for Unity Catalog or Table ACLs. Capsule8 provides a few alerts related to container isolation issues that should be investigated if triggered. The following query can be used to detect all container breakout events within the last 24 hours.",
+      "query": "SELECT event_time, workspace_id, request_params.instanceId, count(*) AS total FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND service_name = 'capsule8-alerts-dataplane' AND action_name in ('Container Escape via Kernel Exploitation', 'Userland Container Escape', 'New File Executed in Container', 'Privileged Container Launched') GROUP BY 1, 2, 3 ORDER BY event_time DESC",
+      "parent": "system_tables/audit/compliance_security_profile/queries/",
+      "alert": {
+        "name": "capsule8_container_breakout_events",
+        "options": {
+          "column": "total",
+          "custom_body": "<h3>There have been the following container breakout events detected by Capsule8 within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
+          "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
+          "muted": false,
+          "op": ">",
+          "value": "0"
+        },
+        "rearm": "3600",
+        "parent": "system_tables/audit/compliance_security_profile/alerts/"
+      }
+    },
+    {
+      "name": "capsule8_changes_to_host_security_settings",
+      "description": "No untrusted code or end-user commands should be running on the host OS. There should be no process making changes to security configurations of the host VM. The following SQL query can be used to help us identify suspicious changes within the last 24 hours.",
+      "query": "SELECT event_time, workspace_id, request_params.instanceId, count(*) AS total FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND service_name = 'capsule8-alerts-dataplane' AND action_name in ('Processor-Level Protections Disabled', 'AppArmor Disabled In Kernel', 'AppArmor Profile Modified', 'Boot Files Modified', 'Root Certificate Store Modified') GROUP BY 1, 2, 3 ORDER BY event_time DESC",
+      "parent": "system_tables/audit/compliance_security_profile/queries/",
+      "alert": {
+        "name": "capsule8_changes_to_host_security_settings",
+        "options": {
+          "column": "total",
+          "custom_body": "<h3>There have been the following changes to host security settings detected by Capsule8 within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
+          "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
+          "muted": false,
+          "op": ">",
+          "value": "0"
+        },
+        "rearm": "3600",
+        "parent": "system_tables/audit/compliance_security_profile/alerts/"
+      }
+    },
+    {
+      "name": "capsule8_kernel_related_events",
+      "description": "Kernel related events could be another indicator of malicious code running on the host. In particular there should be no kernel modules loaded or internal kernel functions being called by user code. The following SQL query can be used to detect any kernel related events within the last 24 hours.",
+      "query": "SELECT event_time, workspace_id, request_params.instanceId, count(*) AS total FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND service_name = 'capsule8-alerts-dataplane' AND action_name in ('BPF Program Executed', 'Kernel Module Loaded', 'Kernel Exploit') GROUP BY 1, 2, 3 ORDER BY event_time DESC",
+      "parent": "system_tables/audit/compliance_security_profile/queries/",
+      "alert": {
+        "name": "capsule8_kernel_related_events",
+        "options": {
+          "column": "total",
+          "custom_body": "<h3>There have been the following kernel related events detected by Capsule8 within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
+          "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
+          "muted": false,
+          "op": ">",
+          "value": "0"
+        },
+        "rearm": "3600",
+        "parent": "system_tables/audit/compliance_security_profile/alerts/"
+      }
+    },
+    {
+      "name": "capsule8_suspicious_host_activity",
+      "description": "Given the architecture of the Databricks containerized runtime and host OS model, only trusted code should be making changes or executing on the host EC2. Changes to containers, evasive actions, or interactive shells could be due to suspicious activity on the host and should be reviewed. The following SQL query can be used to detect suspicious host activity within the last 24 hours.",
+      "query": "SELECT event_time, workspace_id, request_params.instanceId, count(*) AS total FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND service_name = 'capsule8-alerts-dataplane' AND action_name in ('New File Executed in Container', 'Suspicious Interactive Shell', 'User Command Logging Evasion', 'Privileged Container Launched') GROUP BY 1, 2, 3 ORDER BY event_time DESC",
+      "parent": "system_tables/audit/compliance_security_profile/queries/",
+      "alert": {
+        "name": "capsule8_suspicious_host_activity",
+        "options": {
+          "column": "total",
+          "custom_body": "<h3>There have been the following suspicious host activity events detected by Capsule8 within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
           "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
           "muted": false,
           "op": ">",

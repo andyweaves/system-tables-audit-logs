@@ -10,6 +10,7 @@ def read_json_file(json_file: str) -> dict:
 # COMMAND ----------
 
 from databricks.sdk import WorkspaceClient
+from databricks.sdk.core import DatabricksError
 from databricks.sdk.service import sql
 from IPython.display import display, HTML
 import json
@@ -45,7 +46,7 @@ class DatabricksSQLHelper:
       path = f"/Users/{self.workspace_client.current_user.me().user_name}/{path}"
       self.workspace_client.workspace.mkdirs(path)
       return self.workspace_client.workspace.get_status(path)
-  
+
   def _create_sql_query(self, query):
 
     parent = self._get_or_create_parent(path=query["parent"])
@@ -89,8 +90,18 @@ class DatabricksSQLHelper:
       self.html = HTML(f"<b>Created query <a href='https://{self.base_url}/sql/editor/{q.id}?o={self.org_id}'>{q.name}</a> & alert <a href='https://{self.base_url}/sql/alerts/{a.id}?o={self.org_id}'>{a.name}</a>:</b><br>{q.description}")
 
     return display(self._get_html())
-  
-  def clean_up_paths(self):
 
-    #Todo
-    pass
+  def _try_to_delete_dir(self, directory):
+
+    print(f"Attempting to delete directory {directory}")
+    try:
+      self.workspace_client.workspace.delete(directory, recursive=True)
+    except DatabricksError as e:
+      print(e)
+
+  def delete_directories(self, directories):
+
+    for d in directories:
+
+      path = f"/Users/{self.workspace_client.current_user.me().user_name}/{d}"
+      self._try_to_delete_dir(path)

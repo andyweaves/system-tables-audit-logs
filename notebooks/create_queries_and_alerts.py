@@ -17,10 +17,12 @@ databricks_sql_helper = DatabricksSQLHelper()
 
 for q in sql_queries:
 
-  databricks_sql_helper.create_sql_query_and_alert(query=q)
+ databricks_sql_helper.create_sql_query_and_alert(query=q)
 
 # COMMAND ----------
 
-# for q in sql_queries:
+clean_up = False
 
-#   print(q)
+if clean_up:
+  directories = [x for pair in set([(sql.get("parent"), sql.get("alert").get("parent")) for sql in sql_queries]) for x in pair] 
+  databricks_sql_helper.delete_directories(directories)
