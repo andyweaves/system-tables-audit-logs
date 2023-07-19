@@ -1,1 +1,2 @@
 databricks-sdk
+pretty_html_table
