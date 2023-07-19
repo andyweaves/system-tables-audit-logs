@@ -15,19 +15,21 @@ sql_queries = read_json_file(json_file="../resources/queries_and_alerts.json")["
 
 databricks_sql_helper = DatabricksSQLHelper()
 
-# for q in sql_queries:
+for q in sql_queries:
 
-#  databricks_sql_helper.create_sql_query_and_alert(query=q)
+ urls = databricks_sql_helper.create_sql_query_and_alert(query=q)
+ q.update(urls)
 
 # COMMAND ----------
 
 import pandas as pd
-from pretty_html_table import build_table
 
-pdf = (pd.json_normalize(sql_queries)[["name", "description", "alert.name"]]
-       .rename(columns={"name": "query_name", "description": "query_description", "alert.name": "alert_name"}))
+pdf = (pd.json_normalize(sql_queries)[["query_url", "description", "alert_url"]]
+       .rename(
+         columns={"query_url": "query", "description": "query_description", "alert_url": "alert"}))
+
 displayHTML(
-  f"""<h2>Created the following SQL Queries and Alerts</h2>
+  f"""<h1>The following SQL Queries and Alerts have been created:</h1>
   {build_table(pdf, 'blue_light')}
   """)
 

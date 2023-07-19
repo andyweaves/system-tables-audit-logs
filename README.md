@@ -8,14 +8,14 @@ Automatic creation of important SQL Queries &amp; Alerts for Databricks System T
 ## Setup 
 
 1. Clone this Github Repo using Databricks Repos (see the docs for [AWS](https://docs.databricks.com/repos/index.html) and [Azure](https://docs.microsoft.com/en-us/azure/databricks/repos/))
-2. Run the [create_queries_and_alerts](notebooks/create_queries_and_alerts) notebook
+2. Run the [create_queries_and_alerts](notebooks/create_queries_and_alerts.py) notebook
 3. The notebook will create SQL queries and alerts based on the config file [queries_and_alerts.json](resources/queries_and_alerts.json)
-4. To add new SQL queries and alerts, you can just add them to the config file [queries_and_alerts.json](resources/queries_and_alerts.json)
-5. If you want to cleanup the queries and alerts that have been created, just update the last cell in [create_queries_and_alerts](notebooks/create_queries_and_alerts) so that `clean_up = True`
+4. To add new SQL queries and alerts, you just add them to the config file [queries_and_alerts.json](resources/queries_and_alerts.json)
+5. If you want to cleanup the queries and alerts that have been created, just update the last cell in [create_queries_and_alerts](notebooks/create_queries_and_alerts.py) so that `clean_up = True`
 
 ## Queries and Alerts
 
-The [create_queries_and_alerts](notebooks/create_queries_and_alerts) notebook currently creates the following SQL queries and alerts:
+The [create_queries_and_alerts](notebooks/create_queries_and_alerts.py) notebook currently creates the following SQL queries and alerts:
 
 <table border="0" class="dataframe">
   <thead>
