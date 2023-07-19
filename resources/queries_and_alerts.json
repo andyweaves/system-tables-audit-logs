@@ -154,7 +154,7 @@
     },
     {
       "name": "delta_sharing_recipients_without_ip_acls",
-      "description": "If you’re sharing personal data, delta sharing recipients should always be secured with IP access lists. The following SQL query can be used to monitor the creation or update of delta sharing recipients which do not have IP access lists defined.",
+      "description": "If you’re sharing personal data, delta sharing recipients should always be secured with IP access lists. The following SQL query can be used to detect the creation or update of delta sharing recipients which do not have IP access lists defined.",
       "query": "SELECT event_time, user_identity.email, CASE WHEN request_params.name IS NOT NULL THEN request_params.name WHEN request_params.name_arg IS NOT NULL THEN request_params.name_arg ELSE NULL END AS delta_share, request_params.ip_access_list, count(*) AS total FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND action_name IN ('createRecipient') AND request_params.ip_access_list IS NULL GROUP BY 1, 2, 3, 4 ORDER BY event_time DESC",
       "parent": "system_tables/audit/admin/queries/",
       "alert": {
@@ -162,6 +162,25 @@
         "options": {
           "column": "total",
           "custom_body": "<h3>There have been the following Delta Sharing recipients created without IP ACLs within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
+          "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
+          "muted": false,
+          "op": ">",
+          "value": "0"
+        },
+        "rearm": "3600",
+        "parent": "system_tables/audit/admin/alerts/"
+      }
+    },
+    {
+      "name": "long_lifetime_token_generation",
+      "description": "Personal access tokens should be treated like a credential and protected at all times. As well as being managed by the Token Management API and secured with additional protections like IP Access Lists, they should only be generated with a short lifetime. The following SQL query can be used to detect the generation of PAT tokens with a lifetime of greater than 72 hours.",
+      "query": "SELECT event_time, workspace_id, user_identity.email, timestamp_millis(cast(request_params.tokenExpirationTime AS BIGINT)) AS token_expiration, timestampdiff(HOUR, event_time, timestamp_millis(cast(request_params.tokenExpirationTime AS BIGINT))) AS token_duration_in_hours, request_params.tokenHash, count(*) AS total FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND action_name = 'generateDbToken' AND timestampdiff(HOUR, event_time, timestamp_millis(cast(request_params.tokenExpirationTime AS BIGINT))) > 72 GROUP BY 1, 2, 3, 4, 5, 6 ORDER BY event_time DESC",
+      "parent": "system_tables/audit/admin/queries/",
+      "alert": {
+        "name": "long_lifetime_token_generation",
+        "options": {
+          "column": "total",
+          "custom_body": "<h3>There have been the following tokens generated with a lifetime of >72 hours within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
           "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
           "muted": false,
           "op": ">",
