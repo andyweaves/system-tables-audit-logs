@@ -10,12 +10,12 @@ Automatic creation of important SQL Queries &amp; Alerts for Databricks System T
 1. Clone this Github Repo using Databricks Repos (see the docs for [AWS](https://docs.databricks.com/repos/index.html) and [Azure](https://docs.microsoft.com/en-us/azure/databricks/repos/))
 2. Run the [create_queries_and_alerts](notebooks/create_queries_and_alerts.py) notebook
 3. The notebook will create SQL queries and alerts based on the config file [queries_and_alerts.json](resources/queries_and_alerts.json)
-4. To add new SQL queries and alerts, you just add them to the config file [queries_and_alerts.json](resources/queries_and_alerts.json)
-5. If you want to cleanup the queries and alerts that have been created, just update the last cell in [create_queries_and_alerts](notebooks/create_queries_and_alerts.py) so that `clean_up = True`
-
-Once the notebook has been run you should see an HTML table with links to all of the queries and alerts:
+4. Once the notebook has been run you should see an HTML table with links to all of the queries and alerts:
 
 ![image](https://github.com/andyweaves/system-tables-audit-logs/assets/43955924/70bebaba-7165-4c9a-90d7-4891d890bfb1)
+
+5. To add new SQL queries and alerts, you just add them to the config file [queries_and_alerts.json](resources/queries_and_alerts.json)
+6. If you want to cleanup the queries and alerts that have been created, just update the last cell in [create_queries_and_alerts](notebooks/create_queries_and_alerts.py) so that `clean_up = True`
 
 ## Queries and Alerts
 
