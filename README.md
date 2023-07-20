@@ -12,7 +12,7 @@ Automatic creation of important SQL Queries &amp; Alerts for Databricks System T
 3. The notebook will create SQL queries and alerts based on the config file [queries_and_alerts.json](resources/queries_and_alerts.json)
 4. Once the notebook has been run you should see an HTML table with links to all of the queries and alerts:
 
-![image](https://github.com/andyweaves/system-tables-audit-logs/assets/43955924/70bebaba-7165-4c9a-90d7-4891d890bfb1)
+![image](https://github.com/andyweaves/system-tables-audit-logs/assets/43955924/e9545061-1d78-4a1b-a86b-8202a229772a)
 
 5. To add new SQL queries and alerts, you just add them to the config file [queries_and_alerts.json](resources/queries_and_alerts.json)
 6. If you want to cleanup the queries and alerts that have been created, just update the last cell in [create_queries_and_alerts](notebooks/create_queries_and_alerts.py) so that `clean_up = True`
