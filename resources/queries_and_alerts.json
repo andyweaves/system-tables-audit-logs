@@ -134,6 +134,25 @@
       }
     },
     {
+      "name": "install_library_on_all_clusters",
+      "description": "Installing libraries on all clusters is an anti-pattern. Customers should use cluster-scoped or notebook-scoped libraries for many different reasons including but not limited to transparency, recreatability, reliability and security. The following SQL query can be used to detect any attempts to install libraries on all clusters within the last 24 hours.",
+      "query": "SELECT event_time, workspace_id, user_identity.email, request_params.library, response.status_code, count(*) AS total FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND service_name = 'clusterLibraries' AND action_name = 'installLibraryOnAllClusters' GROUP BY 1, 2, 3, 4, 5 ORDER BY event_time DESC",
+      "parent": "system_tables/audit/admin/queries/",
+      "alert": {
+        "name": "install_library_on_all_clusters",
+        "options": {
+          "column": "total",
+          "custom_body": "<h3>There have been the following attempts to install libraries on all clusters detected within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
+          "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
+          "muted": false,
+          "op": ">",
+          "value": "0"
+        },
+        "rearm": "3600",
+        "parent": "system_tables/audit/admin/alerts/"
+      }
+    },
+    {
       "name": "mount_point_creation",
       "description": "Mount points are considered an anti-pattern because mount points do not have the same strong data governance features as external locations or volumes in Unity Catalog. The following query can be used to detect new mount points created within the last 24 hours",
       "query": "SELECT event_time, workspace_id, user_identity.email, request_params.mountPoint, count(*) AS total FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND action_name = 'mount' GROUP BY 1, 2, 3, 4 ORDER BY event_time DESC",
@@ -185,6 +204,82 @@
           "muted": false,
           "op": ">",
           "value": "0"
+        },
+        "rearm": "3600",
+        "parent": "system_tables/audit/admin/alerts/"
+      }
+    },
+    {
+      "name": "potential_privilege_escalation",
+      "description": "A high number of permission changes could indicate privelege escalation. The following SQL query can be used to detect users who have made a high number (>50) changes to permissions within the last 24 hours. This query filters out changes made by Databricks System-Users, although you could optionally add them back in.",
+      "query": "SELECT * FROM (SELECT event_date, user_identity.email, if(isnotnull(request_params.workspace_id), request_params.workspace_id, workspace_id) AS workspace_id, collect_set(service_name) AS service_names, size(collect_set(service_name)) AS number_of_services, collect_set(action_name) AS action_names, size(collect_set(action_name)) AS number_of_actions, count(*) AS number_of_changes FROM system.access.audit WHERE action_name IN ('addPrincipalToGroup', 'changeDatabricksSqlAcl', 'changeDatabricksWorkspaceAcl', 'changeDbTokenAcl', 'changePasswordAcl', 'changeServicePrincipalAcls', 'generateDbToken','setAdmin', 'changeClusterAcl', 'changeClusterPolicyAcl', 'changeWarehouseAcls', 'changePermissions', 'transferObjectOwnership', 'changePipelineAcls', 'changeFeatureTableAcl', 'addPrincipalToGroup', 'changeIamRoleAcl', 'changeInstancePoolAcl', 'changeJobAcl', 'resetJobAcl', 'changeRegisteredModelAcl', 'changeInferenceEndpointAcl', 'putAcl', 'changeSecurableOwner', 'grantPermission', 'changeWorkspaceAcl', 'updateRoleAssignment', 'setAccountAdmin', 'changeAccountOwner', 'updatePermissions', 'updateSharePermissions') AND event_time >= current_timestamp() - INTERVAL 24 HOURS AND user_identity.email NOT IN ('System-User') GROUP BY 1, 2, 3) WHERE number_of_changes > 50 ORDER BY number_of_changes DESC",
+      "parent": "system_tables/audit/admin/queries/",
+      "alert": {
+        "name": "potential_privilege_escalation",
+        "options": {
+          "column": "number_of_changes",
+          "custom_body": "<h3>There have been the following high numbers of permissions changes detected within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
+          "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
+          "muted": false,
+          "op": ">=",
+          "value": "50"
+        },
+        "rearm": "3600",
+        "parent": "system_tables/audit/admin/alerts/"
+      }
+    },
+    {
+      "name": "destructive_activities",
+      "description": "A high number of destructive activities (such as delete* events) may indicate a malicious attempt to cause disruption and harm. The following SQL query can be used to detect users who have attempted a high number (>50) destructive activities within the last 24 hours. This query filters out activities from Databricks System-Users, although you could optionally add them back in.",
+      "query": "SELECT * FROM (SELECT event_date, user_identity.email, if(isnotnull(request_params.workspace_id), request_params.workspace_id, workspace_id) AS workspace_id, collect_set(service_name) AS service_names, size(collect_set(service_name)) AS number_of_services, collect_set(action_name) AS action_names, size(collect_set(action_name)) AS number_of_actions, count(*) AS total_items_deleted FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND user_identity.email NOT IN ('System-User') AND (startswith(action_name, 'delete') OR contains(lower(action_name), 'delete') OR contains(lower(action_name), 'trash')) GROUP BY 1, 2, 3) WHERE total_items_deleted > 50 ORDER BY total_items_deleted DESC",
+      "parent": "system_tables/audit/admin/queries/",
+      "alert": {
+        "name": "destructive_activities",
+        "options": {
+          "column": "total_items_deleted",
+          "custom_body": "<h3>There have been the following high numbers of destructive activities detected within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
+          "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
+          "muted": false,
+          "op": ">=",
+          "value": "50"
+        },
+        "rearm": "3600",
+        "parent": "system_tables/audit/admin/alerts/"
+      }
+    },
+    {
+      "name": "repeated_access_to_secrets",
+      "description": "Repeated attempts to access secrets could indicate an attempt to steal credentials. The following SQL query can be used to detect users who have attempted a high number (>15) of attempts to access secrets within the last 24 hours. This query filters out requests from Databricks System-Users, although you could optionally add them back in.",
+      "query": "SELECT * FROM (SELECT event_date, user_identity.email, workspace_id, collect_set(request_params.scope) AS secret_scopes, size(collect_set(request_params.scope)) AS number_of_scopes_accessed, collect_set(request_params.key) AS secret_keys, size(collect_set(request_params.key)) AS number_of_secrets_accessed, count(*) AS total_requests FROM system.access.audit WHERE action_name = 'getSecret' AND event_time >= current_timestamp() - INTERVAL 24 HOURS AND user_identity.email NOT IN ('System-User') GROUP BY 1, 2, 3) WHERE number_of_secrets_accessed >= 15 ORDER BY number_of_secrets_accessed DESC",
+      "parent": "system_tables/audit/admin/queries/",
+      "alert": {
+        "name": "repeated_access_to_secrets",
+        "options": {
+          "column": "total",
+          "custom_body": "<h3>There have been the repeated attempts to access secrets within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
+          "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
+          "muted": false,
+          "op": ">=",
+          "value": "15"
+        },
+        "rearm": "3600",
+        "parent": "system_tables/audit/admin/alerts/"
+      }
+    },
+    {
+      "name": "access_to_multiple_workspaces",
+      "description": "The same user accessing multiple workspaces within a short time frame could indicate lateral movement, or malicious attempts to increase the blast radius of an attack. The following SQL query can be used to detect users who have accessed a high number (>5) of different workspaces within the last 24 hours. This query filters out requests from unknown and Databricks System-Users, although you could optionally add them back in.",
+      "query": "SELECT * FROM (SELECT event_date, user_identity.email, count(distinct workspace_id) AS number_of_workspaces_accessed, collect_set(workspace_id) AS workspace_ids FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND user_identity.email NOT IN ('System-User', 'unknown') GROUP BY 1, 2) WHERE number_of_workspaces_accessed >= 5 ORDER BY number_of_workspaces_accessed DESC",
+      "parent": "system_tables/audit/admin/queries/",
+      "alert": {
+        "name": "",
+        "options": {
+          "column": "number_of_workspaces_accessed",
+          "custom_body": "<h3>There have been the following attempts to access multiple workspaces within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
+          "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
+          "muted": false,
+          "op": ">=",
+          "value": "5"
         },
         "rearm": "3600",
         "parent": "system_tables/audit/admin/alerts/"

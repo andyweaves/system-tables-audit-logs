@@ -78,7 +78,7 @@ class DatabricksSQLHelper:
   def create_sql_query_and_alert(self, query) -> None:
 
     q = self._create_sql_query(query=query)
-    display(HTML(f"Successfully created query <a href='https://{self.base_url}/sql/editor/{q.id}?o={self.org_id}'>{q.name}</a>"))
+    displayHTML(f"Successfully created query <a href='https://{self.base_url}/sql/editor/{q.id}?o={self.org_id}'>{q.name}</a>")
     self.urls.update({"query_url": 
       f"<a href='https://{self.base_url}/sql/editor/{q.id}?o={self.org_id}'>{q.name}</a>"})
 
@@ -86,7 +86,7 @@ class DatabricksSQLHelper:
 
     if alert:
       a = self._create_sql_alert(alert=alert, qid=q.id)
-      display(HTML(f"Successfully created alert <a href='https://{self.base_url}/sql/alerts/{a.id}?o={self.org_id}'>{a.name}</a>"))
+      displayHTML(f"Successfully created alert <a href='https://{self.base_url}/sql/alerts/{a.id}?o={self.org_id}'>{a.name}</a>")
       self.urls.update({"alert_url": f"<a href='https://{self.base_url}/sql/alerts/{a.id}?o={self.org_id}'>{a.name}</a>"})
 
     return self.urls
