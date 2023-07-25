@@ -62,24 +62,64 @@ The [create_queries_and_alerts](notebooks/create_queries_and_alerts.py) notebook
       <td style="background-color: #D9E1F2;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">ip_access_list_failures</td>
     </tr>
     <tr>
-      <td style="background-color: white; color: black;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">databricks_access_to_customer_workspaces</td>
-      <td style="background-color: white; color: black;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">This query can be used to detect logins to your workspace via the Databricks support process. This access is tied to a support ticket while also complying with your workspace configuration that may disable such access. The following query can be used to detect Databricks access to your workspaces within the last 24 hours.</td>
-      <td style="background-color: white; color: black;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">databricks_access_to_customer_workspaces</td>
+      <td style="background-color: white; color: black;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">ip_access_list_changes</td>
+      <td style="background-color: white; color: black;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">Databricks allows customers to configure IP access lists to restrict access to their account &amp; workspaces. However, they may want to monitor and be alerted whenever thos IP access lists change. The following query can be used to detect all createIpAccessList, deleteIpAccessList and updateIpAccessList events within the last 24 hours.</td>
+      <td style="background-color: white; color: black;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">ip_access_list_changes</td>
+    </tr>
+    <tr>
+      <td style="background-color: #D9E1F2;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">databricks_access_to_customer_workspaces</td>
+      <td style="background-color: #D9E1F2;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">This query can be used to detect logins to your workspace via the Databricks support process. This access is tied to a support ticket while also complying with your workspace configuration that may disable such access. The following query can be used to detect Databricks access to your workspaces within the last 24 hours.</td>
+      <td style="background-color: #D9E1F2;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">databricks_access_to_customer_workspaces</td>
+    </tr>
+    <tr>
+      <td style="background-color: white; color: black;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">terms_of_service_changes</td>
+      <td style="background-color: white; color: black;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">As Databricks rolls out new products and features, customers may occassionally have to agree to changes in our Terms of Service before they can opt-in to the new feature. Some customers might want to monitor when an account admin accepts such terms of service changes. The following SQL query can be used to detect any acceptance or sending of Terms of Service changes within the last 24 hours</td>
+      <td style="background-color: white; color: black;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">terms_of_service_changes</td>
     </tr>
     <tr>
       <td style="background-color: #D9E1F2;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">global_init_script_changes</td>
-      <td style="background-color: #D9E1F2;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">Global init scripts run arbitrary code that is executed on every cluster. This can be a very powerful capability but with great power comes great responsibility. The following SQL query can be used to detect the creation, update and deletion of global init scripts within the last 24 hours</td>
+      <td style="background-color: #D9E1F2;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">Global init scripts run arbitrary code that is executed on every cluster. This can be a very powerful capability but with great power comes great responsibility. The following SQL query can be used to detect the creation, update and deletion of global init scripts within the last 24 hours.</td>
       <td style="background-color: #D9E1F2;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">global_init_script_changes</td>
     </tr>
     <tr>
-      <td style="background-color: white; color: black;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">mount_point_creation</td>
-      <td style="background-color: white; color: black;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">Mount points are considered an anti-pattern because mount points do not have the same strong data governance features as external locations or volumes in Unity Catalog. The following query can be used to detect new mount points created within the last 24 hours</td>
-      <td style="background-color: white; color: black;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">mount_point_creation</td>
+      <td style="background-color: white; color: black;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">install_library_on_all_clusters</td>
+      <td style="background-color: white; color: black;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">Installing libraries on all clusters is an anti-pattern. Customers should use cluster-scoped or notebook-scoped libraries for many different reasons including but not limited to transparency, recreatability, reliability and security. The following SQL query can be used to detect any attempts to install libraries on all clusters within the last 24 hours.</td>
+      <td style="background-color: white; color: black;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">install_library_on_all_clusters</td>
     </tr>
     <tr>
-      <td style="background-color: #D9E1F2;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">delta_sharing_recipients_without_ip_acls</td>
-      <td style="background-color: #D9E1F2;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">If you’re sharing personal data, delta sharing recipients should always be secured with IP access lists. The following SQL query can be used to monitor the creation or update of delta sharing recipients which do not have IP access lists defined.</td>
-      <td style="background-color: #D9E1F2;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">delta_sharing_recipients_without_ip_acls</td>
+      <td style="background-color: #D9E1F2;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">mount_point_creation</td>
+      <td style="background-color: #D9E1F2;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">Mount points are considered an anti-pattern because mount points do not have the same strong data governance features as external locations or volumes in Unity Catalog. The following query can be used to detect new mount points created within the last 24 hours</td>
+      <td style="background-color: #D9E1F2;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">mount_point_creation</td>
+    </tr>
+    <tr>
+      <td style="background-color: white; color: black;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">delta_sharing_recipients_without_ip_acls</td>
+      <td style="background-color: white; color: black;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">If you’re sharing personal data, delta sharing recipients should always be secured with IP access lists. The following SQL query can be used to detect the creation or update of delta sharing recipients which do not have IP access lists defined.</td>
+      <td style="background-color: white; color: black;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">delta_sharing_recipients_without_ip_acls</td>
+    </tr>
+    <tr>
+      <td style="background-color: #D9E1F2;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">long_lifetime_token_generation</td>
+      <td style="background-color: #D9E1F2;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">Personal access tokens should be treated like a credential and protected at all times. As well as being managed by the Token Management API and secured with additional protections like IP Access Lists, they should only be generated with a short lifetime. The following SQL query can be used to detect the generation of PAT tokens with a lifetime of greater than 72 hours.</td>
+      <td style="background-color: #D9E1F2;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">long_lifetime_token_generation</td>
+    </tr>
+    <tr>
+      <td style="background-color: white; color: black;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">potential_privilege_escalation</td>
+      <td style="background-color: white; color: black;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">A high number of permission changes could indicate privelege escalation. The following SQL query can be used to detect users who have made a high number (&gt;50) changes to permissions within the last 24 hours. This query filters out changes made by Databricks System-Users, although you could optionally add them back in.</td>
+      <td style="background-color: white; color: black;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">potential_privilege_escalation</td>
+    </tr>
+    <tr>
+      <td style="background-color: #D9E1F2;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">destructive_activities</td>
+      <td style="background-color: #D9E1F2;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">A high number of destructive activities (such as delete* events) may indicate a malicious attempt to cause disruption and harm. The following SQL query can be used to detect users who have attempted a high number (&gt;50) destructive activities within the last 24 hours. This query filters out activities from Databricks System-Users, although you could optionally add them back in.</td>
+      <td style="background-color: #D9E1F2;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">destructive_activities</td>
+    </tr>
+    <tr>
+      <td style="background-color: white; color: black;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">repeated_access_to_secrets</td>
+      <td style="background-color: white; color: black;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">Repeated attempts to access secrets could indicate an attempt to steal credentials. The following SQL query can be used to detect users who have attempted a high number (&gt;15) of attempts to access secrets within the last 24 hours. This query filters out requests from Databricks System-Users, although you could optionally add them back in.</td>
+      <td style="background-color: white; color: black;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">repeated_access_to_secrets</td>
+    </tr>
+    <tr>
+      <td style="background-color: #D9E1F2;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">access_to_multiple_workspaces</td>
+      <td style="background-color: #D9E1F2;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">The same user accessing multiple workspaces within a short time frame could indicate lateral movement, or malicious attempts to increase the blast radius of an attack. The following SQL query can be used to detect users who have accessed a high number (&gt;5) of different workspaces within the last 24 hours. This query filters out requests from unknown and Databricks System-Users, although you could optionally add them back in.</td>
+      <td style="background-color: #D9E1F2;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">access_to_multiple_workspaces</td>
     </tr>
     <tr>
       <td style="background-color: white; color: black;font-family: Century Gothic, sans-serif;font-size: medium;text-align: left;padding: 0px 20px 0px 0px;width: auto">use_of_print_statements</td>

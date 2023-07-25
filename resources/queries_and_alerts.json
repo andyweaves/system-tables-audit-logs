@@ -96,6 +96,25 @@
       }
     },
     {
+      "name": "ip_access_list_changes",
+      "description": "Databricks allows customers to configure IP access lists to restrict access to their account & workspaces. However, they may want to monitor and be alerted whenever thos IP access lists change. The following query can be used to detect all createIpAccessList, deleteIpAccessList and updateIpAccessList events within the last 24 hours.",
+      "query": "SELECT event_time, user_identity.email, workspace_id, action_name, request_params.ipAccessListId, response.status_code, count(*) AS total FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND action_name IN ('createIpAccessList', 'deleteIpAccessList', 'updateIpAccessList') GROUP BY 1, 2, 3, 4, 5, 6 ORDER BY event_time DESC",
+      "parent": "system_tables/audit/admin/queries/",
+      "alert": {
+        "name": "ip_access_list_changes",
+        "options": {
+          "column": "total",
+          "custom_body": "<h3>There have been the following attempts to change the IP access list settings of a workspace within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
+          "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
+          "muted": false,
+          "op": ">",
+          "value": "0"
+        },
+        "rearm": "3600",
+        "parent": "system_tables/audit/admin/alerts/"
+      }
+    },
+    {
       "name": "databricks_access_to_customer_workspaces",
       "description": "This query can be used to detect logins to your workspace via the Databricks support process. This access is tied to a support ticket while also complying with your workspace configuration that may disable such access. The following query can be used to detect Databricks access to your workspaces within the last 24 hours.",
       "query": "SELECT event_time, workspace_id, request_params.user, request_params.approver, request_params.duration, request_params.reason, count(*) AS total FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND action_name = 'databricksAccess' GROUP BY 1, 2, 3, 4, 5, 6 ORDER BY event_time DESC",
@@ -115,8 +134,27 @@
       }
     },
     {
+      "name": "terms_of_service_changes",
+      "description": "As Databricks rolls out new products and features, customers may occassionally have to agree to changes in our Terms of Service before they can opt-in to the new feature. Some customers might want to monitor when an account admin accepts such terms of service changes. The following SQL query can be used to detect any acceptance or sending of Terms of Service changes within the last 24 hours",
+      "query": "SELECT event_time, user_identity.email, request_params.account_id, if(isnotnull(request_params.workspace_id), request_params.workspace_id, workspace_id) AS workspace_id, action_name, count(*) AS total FROM system.access.audit WHERE  event_time >= current_timestamp() - INTERVAL 24 HOURS AND action_name IN ('acceptTos', 'sendTos') GROUP BY 1, 2, 3, 4, 5 ORDER BY event_time DESC",
+      "parent": "system_tables/audit/admin/queries/",
+      "alert": {
+        "name": "terms_of_service_changes",
+        "options": {
+          "column": "total",
+          "custom_body": "<h3>There have been the following Terms of Service changes detected within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
+          "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
+          "muted": false,
+          "op": ">",
+          "value": "0"
+        },
+        "rearm": "3600",
+        "parent": "system_tables/audit/admin/alerts/"
+      }
+    },
+    {
       "name": "global_init_script_changes",
-      "description": "Global init scripts run arbitrary code that is executed on every cluster. This can be a very powerful capability but with great power comes great responsibility. The following SQL query can be used to detect the creation, update and deletion of global init scripts within the last 24 hours",
+      "description": "Global init scripts run arbitrary code that is executed on every cluster. This can be a very powerful capability but with great power comes great responsibility. The following SQL query can be used to detect the creation, update and deletion of global init scripts within the last 24 hours.",
       "query": "SELECT event_time, workspace_id, user_identity.email, source_ip_address, action_name, request_params.name, request_params.script_id, request_params.enabled, request_params.`script-SHA256`, response.status_code, count(*) AS total FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND service_name = 'globalInitScripts' GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 ORDER BY event_time DESC",
       "parent": "system_tables/audit/admin/queries/",
       "alert": {
@@ -212,12 +250,12 @@
     {
       "name": "potential_privilege_escalation",
       "description": "A high number of permission changes could indicate privelege escalation. The following SQL query can be used to detect users who have made a high number (>50) changes to permissions within the last 24 hours. This query filters out changes made by Databricks System-Users, although you could optionally add them back in.",
-      "query": "SELECT * FROM (SELECT event_date, user_identity.email, if(isnotnull(request_params.workspace_id), request_params.workspace_id, workspace_id) AS workspace_id, collect_set(service_name) AS service_names, size(collect_set(service_name)) AS number_of_services, collect_set(action_name) AS action_names, size(collect_set(action_name)) AS number_of_actions, count(*) AS number_of_changes FROM system.access.audit WHERE action_name IN ('addPrincipalToGroup', 'changeDatabricksSqlAcl', 'changeDatabricksWorkspaceAcl', 'changeDbTokenAcl', 'changePasswordAcl', 'changeServicePrincipalAcls', 'generateDbToken','setAdmin', 'changeClusterAcl', 'changeClusterPolicyAcl', 'changeWarehouseAcls', 'changePermissions', 'transferObjectOwnership', 'changePipelineAcls', 'changeFeatureTableAcl', 'addPrincipalToGroup', 'changeIamRoleAcl', 'changeInstancePoolAcl', 'changeJobAcl', 'resetJobAcl', 'changeRegisteredModelAcl', 'changeInferenceEndpointAcl', 'putAcl', 'changeSecurableOwner', 'grantPermission', 'changeWorkspaceAcl', 'updateRoleAssignment', 'setAccountAdmin', 'changeAccountOwner', 'updatePermissions', 'updateSharePermissions') AND event_time >= current_timestamp() - INTERVAL 24 HOURS AND user_identity.email NOT IN ('System-User') GROUP BY 1, 2, 3) WHERE number_of_changes > 50 ORDER BY number_of_changes DESC",
+      "query": "SELECT * FROM (SELECT event_date, user_identity.email, if(isnotnull(request_params.workspace_id), request_params.workspace_id, workspace_id) AS workspace_id, collect_set(service_name) AS service_names, size(collect_set(service_name)) AS num_services, collect_set(action_name) AS action_names, size(collect_set(action_name)) AS num_actions, count(*) AS num_permissions_changes FROM system.access.audit WHERE action_name IN ('addPrincipalToGroup', 'changeDatabricksSqlAcl', 'changeDatabricksWorkspaceAcl', 'changeDbTokenAcl', 'changePasswordAcl', 'changeServicePrincipalAcls', 'generateDbToken','setAdmin', 'changeClusterAcl', 'changeClusterPolicyAcl', 'changeWarehouseAcls', 'changePermissions', 'transferObjectOwnership', 'changePipelineAcls', 'changeFeatureTableAcl', 'addPrincipalToGroup', 'changeIamRoleAcl', 'changeInstancePoolAcl', 'changeJobAcl', 'resetJobAcl', 'changeRegisteredModelAcl', 'changeInferenceEndpointAcl', 'putAcl', 'changeSecurableOwner', 'grantPermission', 'changeWorkspaceAcl', 'updateRoleAssignment', 'setAccountAdmin', 'changeAccountOwner', 'updatePermissions', 'updateSharePermissions') AND event_time >= current_timestamp() - INTERVAL 24 HOURS AND user_identity.email NOT IN ('System-User') GROUP BY 1, 2, 3) WHERE num_permissions_changes > 50 ORDER BY num_permissions_changes DESC",
       "parent": "system_tables/audit/admin/queries/",
       "alert": {
         "name": "potential_privilege_escalation",
         "options": {
-          "column": "number_of_changes",
+          "column": "num_permissions_changes",
           "custom_body": "<h3>There have been the following high numbers of permissions changes detected within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
           "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
           "muted": false,
@@ -231,12 +269,12 @@
     {
       "name": "destructive_activities",
       "description": "A high number of destructive activities (such as delete* events) may indicate a malicious attempt to cause disruption and harm. The following SQL query can be used to detect users who have attempted a high number (>50) destructive activities within the last 24 hours. This query filters out activities from Databricks System-Users, although you could optionally add them back in.",
-      "query": "SELECT * FROM (SELECT event_date, user_identity.email, if(isnotnull(request_params.workspace_id), request_params.workspace_id, workspace_id) AS workspace_id, collect_set(service_name) AS service_names, size(collect_set(service_name)) AS number_of_services, collect_set(action_name) AS action_names, size(collect_set(action_name)) AS number_of_actions, count(*) AS total_items_deleted FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND user_identity.email NOT IN ('System-User') AND (startswith(action_name, 'delete') OR contains(lower(action_name), 'delete') OR contains(lower(action_name), 'trash')) GROUP BY 1, 2, 3) WHERE total_items_deleted > 50 ORDER BY total_items_deleted DESC",
+      "query": "SELECT * FROM (SELECT event_date, user_identity.email, if(isnotnull(request_params.workspace_id), request_params.workspace_id, workspace_id) AS workspace_id, collect_set(service_name) AS service_names, size(collect_set(service_name)) AS num_services, collect_set(action_name) AS action_names, size(collect_set(action_name)) AS num_actions, count(*) AS num_destructive_activities FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND user_identity.email NOT IN ('System-User') AND (startswith(action_name, 'delete') OR contains(lower(action_name), 'delete') OR contains(lower(action_name), 'trash')) GROUP BY 1, 2, 3) WHERE num_destructive_activities > 50 ORDER BY num_destructive_activities DESC",
       "parent": "system_tables/audit/admin/queries/",
       "alert": {
         "name": "destructive_activities",
         "options": {
-          "column": "total_items_deleted",
+          "column": "num_destructive_activities",
           "custom_body": "<h3>There have been the following high numbers of destructive activities detected within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
           "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
           "muted": false,
@@ -250,12 +288,12 @@
     {
       "name": "repeated_access_to_secrets",
       "description": "Repeated attempts to access secrets could indicate an attempt to steal credentials. The following SQL query can be used to detect users who have attempted a high number (>15) of attempts to access secrets within the last 24 hours. This query filters out requests from Databricks System-Users, although you could optionally add them back in.",
-      "query": "SELECT * FROM (SELECT event_date, user_identity.email, workspace_id, collect_set(request_params.scope) AS secret_scopes, size(collect_set(request_params.scope)) AS number_of_scopes_accessed, collect_set(request_params.key) AS secret_keys, size(collect_set(request_params.key)) AS number_of_secrets_accessed, count(*) AS total_requests FROM system.access.audit WHERE action_name = 'getSecret' AND event_time >= current_timestamp() - INTERVAL 24 HOURS AND user_identity.email NOT IN ('System-User') GROUP BY 1, 2, 3) WHERE number_of_secrets_accessed >= 15 ORDER BY number_of_secrets_accessed DESC",
+      "query": "SELECT * FROM (SELECT event_date, user_identity.email, workspace_id, size(collect_set(request_params.scope)) AS num_scopes_accessed, collect_set(request_params.scope) AS secret_scopes, size(collect_set(request_params.key)) AS num_keys_accessed, collect_set(request_params.key) AS secret_keys, count(*) AS num_requests FROM system.access.audit WHERE action_name = 'getSecret' AND event_time >= current_timestamp() - INTERVAL 24 HOURS AND user_identity.email NOT IN ('System-User') GROUP BY 1, 2, 3) WHERE num_keys_accessed >= 15 ORDER BY num_keys_accessed DESC",
       "parent": "system_tables/audit/admin/queries/",
       "alert": {
         "name": "repeated_access_to_secrets",
         "options": {
-          "column": "total",
+          "column": "num_keys_accessed",
           "custom_body": "<h3>There have been the repeated attempts to access secrets within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
           "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
           "muted": false,
@@ -269,12 +307,12 @@
     {
       "name": "access_to_multiple_workspaces",
       "description": "The same user accessing multiple workspaces within a short time frame could indicate lateral movement, or malicious attempts to increase the blast radius of an attack. The following SQL query can be used to detect users who have accessed a high number (>5) of different workspaces within the last 24 hours. This query filters out requests from unknown and Databricks System-Users, although you could optionally add them back in.",
-      "query": "SELECT * FROM (SELECT event_date, user_identity.email, count(distinct workspace_id) AS number_of_workspaces_accessed, collect_set(workspace_id) AS workspace_ids FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND user_identity.email NOT IN ('System-User', 'unknown') GROUP BY 1, 2) WHERE number_of_workspaces_accessed >= 5 ORDER BY number_of_workspaces_accessed DESC",
+      "query": "SELECT * FROM (SELECT event_date, user_identity.email, count(distinct workspace_id) AS num_workspaces_accessed, collect_set(workspace_id) AS workspace_ids FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND user_identity.email NOT IN ('System-User', 'unknown') GROUP BY 1, 2) WHERE num_workspaces_accessed >= 5 ORDER BY num_workspaces_accessed DESC",
       "parent": "system_tables/audit/admin/queries/",
       "alert": {
-        "name": "",
+        "name": "access_to_multiple_workspaces",
         "options": {
-          "column": "number_of_workspaces_accessed",
+          "column": "num_workspaces_accessed",
           "custom_body": "<h3>There have been the following attempts to access multiple workspaces within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
           "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
           "muted": false,
