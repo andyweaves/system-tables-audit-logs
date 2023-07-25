@@ -35,19 +35,6 @@ displayHTML(
 
 # COMMAND ----------
 
-import pandas as pd
-
-pdf = (pd.json_normalize(sql_queries)[["name", "description", "alert.name"]]
-       .rename(
-         columns={"name": "query_name", "description": "query_description", "alert.name": "alert_name"}))
-
-displayHTML(
-  f"""<h1>The following SQL Queries and Alerts have been created:</h1>
-  {build_table(pdf, 'blue_light')}
-  """)
-
-# COMMAND ----------
-
 clean_up = False
 
 if clean_up:
