@@ -7,6 +7,8 @@ Automatic creation of important SQL Queries &amp; Alerts for Databricks System T
 
 ## Setup 
 
+### Using notebook
+
 1. Clone this Github Repo using Databricks Repos (see the docs for [AWS](https://docs.databricks.com/repos/index.html) and [Azure](https://docs.microsoft.com/en-us/azure/databricks/repos/))
 2. Run the [create_queries_and_alerts](notebooks/create_queries_and_alerts.py) notebook
 3. The notebook will create SQL queries and alerts based on the config file [queries_and_alerts.json](resources/queries_and_alerts.json)
@@ -16,6 +18,10 @@ Automatic creation of important SQL Queries &amp; Alerts for Databricks System T
 
 5. To add new SQL queries and alerts, you just add them to the config file [queries_and_alerts.json](resources/queries_and_alerts.json)
 6. If you want to cleanup the queries and alerts that have been created, just update the last cell in [create_queries_and_alerts](notebooks/create_queries_and_alerts.py) so that `clean_up = True`
+
+### Using Terraform
+
+Alternatively you can setup everything by following instructions in the [terraform](terraform) folder.  Terraform code is also using data from the config file [queries_and_alerts.json](resources/queries_and_alerts.json) to create all objects.
 
 ## Queries and Alerts
 
