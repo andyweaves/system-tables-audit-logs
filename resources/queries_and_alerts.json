@@ -2,8 +2,8 @@
   "queries_and_alerts": [
     {
       "name": "repeated_failed_login_attempts",
-      "description": "Repeated failed login attempts could indicate an attacker trying to brute force access to your lakehouse. The following query can be used to detect repeated failed login attempts over a 30 minute period within the last 24 hours.",
-      "query": "SELECT WINDOW(event_time, '30 minutes').start AS window_start, WINDOW(event_time, '30 minutes').end AS window_end, action_name, user_identity.email, request_params.user, response.status_code, count(*) AS total FROM system.access.audit WHERE action_name IN ('aadBrowserLogin', 'aadTokenLogin', 'certLogin', 'jwtLogin', 'login', 'oidcBrowserLogin', 'samlLogin', 'tokenLogin') AND response.status_code IN (401, 403) AND WINDOW(event_time, '30 minutes').end >= current_timestamp() - INTERVAL 24 HOURS GROUP BY 1, 2, 3, 4, 5, 6 ORDER BY window_end DESC",
+      "description": "Repeated failed login attempts could indicate an attacker trying to brute force access to your lakehouse. The following query can be used to detect repeated failed login attempts over a 60 minute period within the last 24 hours.",
+      "query": "SELECT WINDOW(event_time, '60 minutes').start AS window_start, WINDOW(event_time, '60 minutes').end AS window_end, action_name, user_identity.email, request_params.user, response.status_code, count(*) AS total FROM system.access.audit WHERE action_name IN ('aadBrowserLogin', 'aadTokenLogin', 'certLogin', 'jwtLogin', 'login', 'oidcBrowserLogin', 'samlLogin', 'tokenLogin') AND response.status_code IN (401, 403) AND WINDOW(event_time, '60 minutes').end >= current_timestamp() - INTERVAL 24 HOURS GROUP BY 1, 2, 3, 4, 5, 6 ORDER BY total DESC",
       "parent": "system_tables/audit/admin/queries/",
       "alert": {
         "name": "repeated_failed_login_attempts",
@@ -210,25 +210,6 @@
       }
     },
     {
-      "name": "delta_sharing_recipients_without_ip_acls",
-      "description": "If you’re sharing personal data, delta sharing recipients should always be secured with IP access lists. The following SQL query can be used to detect the creation or update of delta sharing recipients which do not have IP access lists defined.",
-      "query": "SELECT event_time, user_identity.email, CASE WHEN request_params.name IS NOT NULL THEN request_params.name WHEN request_params.name_arg IS NOT NULL THEN request_params.name_arg ELSE NULL END AS delta_share, request_params.ip_access_list, count(*) AS total FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND action_name IN ('createRecipient') AND request_params.ip_access_list IS NULL GROUP BY 1, 2, 3, 4 ORDER BY event_time DESC",
-      "parent": "system_tables/audit/admin/queries/",
-      "alert": {
-        "name": "delta_sharing_recipients_without_ip_acls",
-        "options": {
-          "column": "total",
-          "custom_body": "<h3>There have been the following Delta Sharing recipients created without IP ACLs within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
-          "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
-          "muted": false,
-          "op": ">",
-          "value": "0"
-        },
-        "rearm": "3600",
-        "parent": "system_tables/audit/admin/alerts/"
-      }
-    },
-    {
       "name": "long_lifetime_token_generation",
       "description": "Personal access tokens should be treated like a credential and protected at all times. As well as being managed by the Token Management API and secured with additional protections like IP Access Lists, they should only be generated with a short lifetime. The following SQL query can be used to detect the generation of PAT tokens with a lifetime of greater than 72 hours.",
       "query": "SELECT event_time, workspace_id, user_identity.email, timestamp_millis(cast(request_params.tokenExpirationTime AS BIGINT)) AS token_expiration, timestampdiff(HOUR, event_time, timestamp_millis(cast(request_params.tokenExpirationTime AS BIGINT))) AS token_duration_in_hours, request_params.tokenHash, count(*) AS total FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND action_name = 'generateDbToken' AND timestampdiff(HOUR, event_time, timestamp_millis(cast(request_params.tokenExpirationTime AS BIGINT))) > 72 GROUP BY 1, 2, 3, 4, 5, 6 ORDER BY event_time DESC",
@@ -248,15 +229,15 @@
       }
     },
     {
-      "name": "potential_privilege_escalation",
-      "description": "A high number of permission changes could indicate privelege escalation. The following SQL query can be used to detect users who have made a high number (>50) changes to permissions within the last 24 hours. This query filters out changes made by Databricks System-Users, although you could optionally add them back in.",
-      "query": "SELECT * FROM (SELECT event_date, user_identity.email, if(isnotnull(request_params.workspace_id), request_params.workspace_id, workspace_id) AS workspace_id, collect_set(service_name) AS service_names, size(collect_set(service_name)) AS num_services, collect_set(action_name) AS action_names, size(collect_set(action_name)) AS num_actions, count(*) AS num_permissions_changes FROM system.access.audit WHERE action_name IN ('addPrincipalToGroup', 'changeDatabricksSqlAcl', 'changeDatabricksWorkspaceAcl', 'changeDbTokenAcl', 'changePasswordAcl', 'changeServicePrincipalAcls', 'generateDbToken','setAdmin', 'changeClusterAcl', 'changeClusterPolicyAcl', 'changeWarehouseAcls', 'changePermissions', 'transferObjectOwnership', 'changePipelineAcls', 'changeFeatureTableAcl', 'addPrincipalToGroup', 'changeIamRoleAcl', 'changeInstancePoolAcl', 'changeJobAcl', 'resetJobAcl', 'changeRegisteredModelAcl', 'changeInferenceEndpointAcl', 'putAcl', 'changeSecurableOwner', 'grantPermission', 'changeWorkspaceAcl', 'updateRoleAssignment', 'setAccountAdmin', 'changeAccountOwner', 'updatePermissions', 'updateSharePermissions') AND event_time >= current_timestamp() - INTERVAL 24 HOURS AND user_identity.email NOT IN ('System-User') GROUP BY 1, 2, 3) WHERE num_permissions_changes > 50 ORDER BY num_permissions_changes DESC",
+      "name": "destructive_activities",
+      "description": "A high number of destructive activities (such as delete* events) may indicate a malicious attempt to cause disruption and harm. The following SQL query can be used to detect users who have attempted a high number (>50) destructive activities within the last 24 hours. This query filters out activities from Databricks System-Users, although you could optionally add them back in.",
+      "query": "SELECT * FROM (SELECT event_date, user_identity.email, if(isnotnull(request_params.workspace_id), request_params.workspace_id, workspace_id) AS workspace_id, collect_set(service_name) AS service_names, size(collect_set(service_name)) AS num_services, collect_set(action_name) AS action_names, size(collect_set(action_name)) AS num_actions, count(*) AS num_destructive_activities FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND user_identity.email NOT IN ('System-User') AND (startswith(action_name, 'delete') OR contains(lower(action_name), 'delete') OR contains(lower(action_name), 'trash')) GROUP BY 1, 2, 3) WHERE num_destructive_activities > 50 ORDER BY num_destructive_activities DESC",
       "parent": "system_tables/audit/admin/queries/",
       "alert": {
-        "name": "potential_privilege_escalation",
+        "name": "destructive_activities",
         "options": {
-          "column": "num_permissions_changes",
-          "custom_body": "<h3>There have been the following high numbers of permissions changes detected within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
+          "column": "num_destructive_activities",
+          "custom_body": "<h3>There have been the following high numbers of destructive activities detected within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
           "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
           "muted": false,
           "op": ">=",
@@ -267,15 +248,15 @@
       }
     },
     {
-      "name": "destructive_activities",
-      "description": "A high number of destructive activities (such as delete* events) may indicate a malicious attempt to cause disruption and harm. The following SQL query can be used to detect users who have attempted a high number (>50) destructive activities within the last 24 hours. This query filters out activities from Databricks System-Users, although you could optionally add them back in.",
-      "query": "SELECT * FROM (SELECT event_date, user_identity.email, if(isnotnull(request_params.workspace_id), request_params.workspace_id, workspace_id) AS workspace_id, collect_set(service_name) AS service_names, size(collect_set(service_name)) AS num_services, collect_set(action_name) AS action_names, size(collect_set(action_name)) AS num_actions, count(*) AS num_destructive_activities FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND user_identity.email NOT IN ('System-User') AND (startswith(action_name, 'delete') OR contains(lower(action_name), 'delete') OR contains(lower(action_name), 'trash')) GROUP BY 1, 2, 3) WHERE num_destructive_activities > 50 ORDER BY num_destructive_activities DESC",
+      "name": "potential_privilege_escalation",
+      "description": "A high number of permission changes could indicate privelege escalation. The following SQL query can be used to detect users who have made a high number (>50) changes to permissions within the last 24 hours. This query filters out changes made by Databricks System-Users, although you could optionally add them back in.",
+      "query": "SELECT * FROM (SELECT event_date, user_identity.email, if(isnotnull(request_params.workspace_id), request_params.workspace_id, workspace_id) AS workspace_id, collect_set(service_name) AS service_names, size(collect_set(service_name)) AS num_services, collect_set(action_name) AS action_names, size(collect_set(action_name)) AS num_actions, count(*) AS num_permissions_changes FROM system.access.audit WHERE action_name IN ('addPrincipalToGroup', 'changeDatabricksSqlAcl', 'changeDatabricksWorkspaceAcl', 'changeDbTokenAcl', 'changePasswordAcl', 'changeServicePrincipalAcls', 'generateDbToken','setAdmin', 'changeClusterAcl', 'changeClusterPolicyAcl', 'changeWarehouseAcls', 'changePermissions', 'transferObjectOwnership', 'changePipelineAcls', 'changeFeatureTableAcl', 'addPrincipalToGroup', 'changeIamRoleAcl', 'changeInstancePoolAcl', 'changeJobAcl', 'resetJobAcl', 'changeRegisteredModelAcl', 'changeInferenceEndpointAcl', 'putAcl', 'changeSecurableOwner', 'grantPermission', 'changeWorkspaceAcl', 'updateRoleAssignment', 'setAccountAdmin', 'changeAccountOwner', 'updatePermissions', 'updateSharePermissions') AND event_time >= current_timestamp() - INTERVAL 24 HOURS AND user_identity.email NOT IN ('System-User') GROUP BY 1, 2, 3) WHERE num_permissions_changes > 50 ORDER BY num_permissions_changes DESC",
       "parent": "system_tables/audit/admin/queries/",
       "alert": {
-        "name": "destructive_activities",
+        "name": "potential_privilege_escalation",
         "options": {
-          "column": "num_destructive_activities",
-          "custom_body": "<h3>There have been the following high numbers of destructive activities detected within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
+          "column": "num_permissions_changes",
+          "custom_body": "<h3>There have been the following high numbers of permissions changes detected within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
           "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
           "muted": false,
           "op": ">=",
@@ -304,7 +285,7 @@
         "parent": "system_tables/audit/admin/alerts/"
       }
     },
-    {
+       {
       "name": "access_to_multiple_workspaces",
       "description": "The same user accessing multiple workspaces within a short time frame could indicate lateral movement, or malicious attempts to increase the blast radius of an attack. The following SQL query can be used to detect users who have accessed a high number (>5) of different workspaces within the last 24 hours. This query filters out requests from unknown and Databricks System-Users, although you could optionally add them back in.",
       "query": "SELECT * FROM (SELECT event_date, user_identity.email, count(distinct workspace_id) AS num_workspaces_accessed, collect_set(workspace_id) AS workspace_ids FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND user_identity.email NOT IN ('System-User', 'unknown') GROUP BY 1, 2) WHERE num_workspaces_accessed >= 5 ORDER BY num_workspaces_accessed DESC",
@@ -340,6 +321,120 @@
         },
         "rearm": "3600",
         "parent": "system_tables/audit/admin/alerts/"
+      }
+    },
+    {
+      "name": "repeated_unauthorized_uc_requests",
+      "description": "Repeated unauthorized UC requests could indicate privilege escalation, data exfiltration attempts or an attacker trying to brute force access to your data. The following query can be used to detect repeated unauthorized UC requests over a 60 minute period within the last 24 hours.",
+      "query": "WITH failed_requests AS (SELECT WINDOW(event_time, '60 minutes').start AS window_start, WINDOW(event_time, '60 minutes').end AS window_end, user_identity.email, request_params.metastore_id, if(isnotnull(request_params.workspace_id), request_params.workspace_id, workspace_id) AS workspace_id, action_name, response.error_message FROM system.access.audit WHERE service_name = 'unityCatalog' AND response.status_code IN (401, 403) AND WINDOW(event_time, '60 minutes').end >= current_timestamp() - INTERVAL 24 HOURS), failed_requests_agg AS (SELECT window_start, window_end, email, metastore_id, collect_set(workspace_id) AS workspace_ids,collect_set(action_name) AS action_names, collect_set(error_message) AS error_messages, count(*) AS total FROM failed_requests GROUP BY 1, 2, 3, 4) SELECT * FROM failed_requests_agg WHERE total > 25 ORDER BY total DESC",
+      "parent": "system_tables/audit/unity_catalog/queries/",
+      "alert": {
+        "name": "repeated_unauthorized_uc_requests",
+        "options": {
+          "column": "total",
+          "custom_body": "<h3>There have been the following unauthorized UC requests within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
+          "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
+          "muted": false,
+          "op": ">",
+          "value": "25"
+        },
+        "rearm": "3600",
+        "parent": "system_tables/audit/unity_catalog/alerts/"
+      }
+    },
+    {
+      "name": "repeated_unauthorized_uc_data_requests",
+      "description": "Repeated unauthorized UC data requests could indicate privilege escalation, data exfiltration attempts or an attacker trying to brute force access to your data. The following query can be used to detect repeated unauthorized UC data access ('generateTemporaryTableCredential', 'generateTemporaryPathCredential', 'generateTemporaryVolumeCredential', 'deltaSharingQueryTable', 'deltaSharingQueryTableChanges') requests over a 60 minute period within the last 24 hours.",
+      "query": "WITH failed_data_access AS (SELECT WINDOW(event_time, '60 minutes').start AS window_start, WINDOW(event_time, '60 minutes').end AS window_end,user_identity.email, request_params.metastore_id, if(isnotnull(request_params.workspace_id), request_params.workspace_id, workspace_id) AS workspace_id, action_name, CASE WHEN isnotnull(request_params.table_full_name) THEN request_params.table_full_name WHEN isnotnull(request_params.volume_full_name) THEN request_params.volume_full_name WHEN isnotnull(request_params.name) THEN request_params.name WHEN isnotnull(request_params.url) THEN request_params.url  WHEN isnotnull(request_params.table_url) THEN request_params.table_url WHEN isnotnull(request_params.table_id) THEN request_params.table_id WHEN isnotnull(request_params.volume_id) THEN request_params.volume_id ELSE NULL END AS securable, response.error_message FROM system.access.audit WHERE action_name IN ('generateTemporaryTableCredential', 'generateTemporaryPathCredential', 'generateTemporaryVolumeCredential', 'deltaSharingQueryTable', 'deltaSharingQueryTableChanges') AND response.status_code IN (401, 403) AND WINDOW(event_time, '60 minutes').end >= current_timestamp() - INTERVAL 24 HOURS),  failed_data_access_agg AS (SELECT window_start, window_end, email, metastore_id, collect_set(workspace_id) AS workspace_ids, collect_set(action_name) AS action_names, collect_set(securable) AS securables, collect_set(error_message) AS errors, count(*) AS total FROM failed_data_access GROUP BY 1, 2, 3, 4 ORDER BY total DESC) SELECT * FROM failed_data_access_agg WHERE total > 15",
+      "parent": "system_tables/audit/unity_catalog/queries/",
+      "alert": {
+        "name": "repeated_unauthorized_uc_data_requests",
+        "options": {
+          "column": "total",
+          "custom_body": "<h3>There have been the following unauthorized UC data requests within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
+          "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
+          "muted": false,
+          "op": ">",
+          "value": "15"
+        },
+        "rearm": "3600",
+        "parent": "system_tables/audit/unity_catalog/alerts/"
+      }
+    },
+    {
+      "name": "high_number_of_reads_writes",
+      "description": "A high number of read/writes, particularly where the writes are to different locations could indicate data exfiltration attempts. The following  query can be used to detect a high number of read/writes of UC securables (>20) within an hour window over the last 24 hours, particularly where the user is writing to different locations to the reads.",
+      "query": "WITH read_writes AS (SELECT WINDOW(event_time, '60 minutes').start AS window_start, WINDOW(event_time, '60 minutes').end AS window_end, user_identity.email, request_params.metastore_id, if(isnotnull(request_params.workspace_id), request_params.workspace_id, workspace_id) AS workspace_id, CASE WHEN contains(request_params.operation, 'CREATE') THEN 'WRITE' WHEN contains(request_params.operation, 'WRITE') THEN 'WRITE' WHEN contains(request_params.operation, 'READ') THEN 'READ' ELSE NULL END AS operation, request_params.operation AS full_operation, CASE WHEN isnotnull(request_params.table_full_name) THEN request_params.table_full_name WHEN isnotnull(request_params.volume_full_name) THEN request_params.volume_full_name WHEN isnotnull(request_params.url) THEN request_params.url  WHEN isnotnull(request_params.table_url) THEN request_params.table_url WHEN isnotnull(request_params.table_id) THEN request_params.table_id WHEN isnotnull(request_params.volume_id) THEN request_params.volume_id ELSE NULL END AS securable FROM system.access.audit WHERE action_name IN ('generateTemporaryTableCredential', 'generateTemporaryPathCredential', 'generateTemporaryVolumeCredential') AND WINDOW(event_time, '60 minutes').end >= current_timestamp() - INTERVAL 24 HOURS), read_writes_agg AS (SELECT window_start, window_end, email, metastore_id, collect_set(workspace_id) AS workspace_ids,collect_set(operation) AS operations, collect_set(securable) FILTER(WHERE operation = 'READ') AS read_securables, collect_set(securable) FILTER(WHERE operation = 'WRITE') AS write_securables, count(distinct securable) FILTER(WHERE operation = 'READ') AS num_reads, count(distinct securable) FILTER(WHERE operation = 'WRITE') AS num_writes, count(distinct operation, securable) AS total_read_writes FROM read_writes GROUP BY 1, 2, 3, 4 ORDER BY total_read_writes DESC), read_writes_high AS (SELECT window_start, window_end, email, metastore_id, workspace_ids, operations, read_securables, write_securables, array_except(write_securables, read_securables) AS writes_to_different_locations, num_reads, num_writes, size(array_except(write_securables, read_securables)) AS num_writes_to_different_locations, total_read_writes FROM read_writes_agg) SELECT * FROM read_writes_high WHERE num_reads > 20 AND num_writes > 20 AND num_writes_to_different_locations > 0 ORDER BY num_writes_to_different_locations DESC",
+      "parent": "system_tables/audit/unity_catalog/queries/",
+      "alert": {
+        "name": "high_number_of_reads_writes",
+        "options": {
+          "column": "num_writes_to_different_locations",
+          "custom_body": "<h3>There have been the following infected files detected by ClamAV within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
+          "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
+          "muted": false,
+          "op": ">",
+          "value": "0"
+        },
+        "rearm": "3600",
+        "parent": "system_tables/audit/unity_catalog/alerts/"
+      }
+    },
+    {
+      "name": "delta_sharing_recipients_without_ip_acls",
+      "description": "If you’re sharing personal data, delta sharing recipients should always be secured with IP access lists. The following SQL query can be used to detect the creation or update of delta sharing recipients which do not have IP access lists defined within the last 24 hours.",
+      "query": "SELECT event_time, user_identity.email, CASE WHEN request_params.name IS NOT NULL THEN request_params.name WHEN request_params.name_arg IS NOT NULL THEN request_params.name_arg ELSE NULL END AS delta_share, request_params.ip_access_list, count(*) AS total FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND action_name IN ('createRecipient') AND request_params.ip_access_list IS NULL GROUP BY 1, 2, 3, 4 ORDER BY event_time DESC",
+      "parent": "system_tables/audit/unity_catalog/queries/",
+      "alert": {
+        "name": "delta_sharing_recipients_without_ip_acls",
+        "options": {
+          "column": "total",
+          "custom_body": "<h3>There have been the following Delta Sharing recipients created without IP ACLs within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
+          "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
+          "muted": false,
+          "op": ">",
+          "value": "0"
+        },
+        "rearm": "3600",
+        "parent": "system_tables/audit/unity_catalog/alerts/"
+      }
+    },
+    {
+      "name": "delta_sharing_ip_access_list_failures",
+      "description": "If you’re sharing personal data, delta sharing recipients should always be secured with IP access lists. The following SQL query can be used to detect Delta Sharing data access requests ('deltaSharingQueryTable', 'deltaSharingQueryTableChanges') which have failed IP access list checks within the last 24 hours.",
+      "query": "SELECT event_time, source_ip_address, request_params.metastore_id, request_params.name, request_params.share, request_params.recipient_name, request_params.recipient_authentication_type, COUNT(*) AS total FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND service_name = 'unityCatalog' AND action_name IN ('deltaSharingQueryTable', 'deltaSharingQueryTableChanges') AND request_params.is_ip_access_denied = 'true' GROUP BY 1, 2, 3, 4, 5, 6, 7 ORDER BY event_time DESC",
+      "parent": "system_tables/audit/unity_catalog/queries/",
+      "alert": {
+        "name": "delta_sharing_ip_access_list_failures",
+        "options": {
+          "column": "total",
+          "custom_body": "<h3>There have been the following Delta Sharing data access requests which have failed IP access list rules within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
+          "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
+          "muted": false,
+          "op": ">",
+          "value": "0"
+        },
+        "rearm": "3600",
+        "parent": "system_tables/audit/unity_catalog/alerts/"
+      }
+    },
+    {
+      "name": "delta_sharing_recipient_token_lifetime_change",
+      "description": "Delta Sharing recipient tokens are valid for the lifetime that you specify. As well as protecting Delta Shares via IP access lists, you should also ensure that the lifetime of a recipient token is set to a value that is suitable for the data within the metastore it is accessing. Once you have set a token lifetime, you may want to monitor whether an account admin ever changes that value. The following SQL can be used to detect changes to the Delta Sharing recipient token lifetime for a metastore within the last 24 hours.",
+      "query": "SELECT event_time, user_identity.email, account_id, request_params.metastore_id, request_params.delta_sharing_recipient_token_lifetime_in_seconds, response.status_code, count(*) AS total FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND action_name = 'updateMetastore' AND request_params.delta_sharing_recipient_token_lifetime_in_seconds IS NOT NULL GROUP BY 1, 2, 3, 4, 5, 6 ORDER BY total DESC",
+      "parent": "system_tables/audit/unity_catalog/queries/",
+      "alert": {
+        "name": "delta_sharing_recipient_token_lifetime_change",
+        "options": {
+          "column": "total",
+          "custom_body": "<h3>There have been the following changes to a Delta Sharing recipient token lifetime within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
+          "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
+          "muted": false,
+          "op": ">",
+          "value": "0"
+        },
+        "rearm": "3600",
+        "parent": "system_tables/audit/unity_catalog/alerts/"
       }
     },
     {
