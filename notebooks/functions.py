@@ -77,11 +77,12 @@ class DatabricksSQLHelper:
 
   def create_sql_query_and_alert(self, query) -> None:
 
+    self.urls.clear()
+
     q = self._create_sql_query(query=query)
     print(f"Successfully created query '{q.name}' with id {q.id}")
     #displayHTML(f"Successfully created query <a href='https://{self.base_url}/sql/editor/{q.id}?o={self.org_id}'>{q.name}</a>")
-    self.urls.update({"query_url": 
-      f"<a href='https://{self.base_url}/sql/editor/{q.id}?o={self.org_id}'>{q.name}</a>"})
+    self.urls.update({"query_url": f"<a href='https://{self.base_url}/sql/editor/{q.id}?o={self.org_id}'>{q.name}</a>"})
 
     alert = query.get("alert") 
 

@@ -38,5 +38,5 @@ displayHTML(
 clean_up = False
 
 if clean_up:
-  directories = [x for pair in set([(sql.get("parent"), sql.get("alert").get("parent")) for sql in sql_queries]) for x in pair] 
+  directories =directories = [x for pair in set([(sql.get("parent"), sql.get("alert").get("parent")) for sql in sql_queries if sql.get("alert") is not None]) for x in pair]  
   databricks_sql_helper.delete_directories(directories)
