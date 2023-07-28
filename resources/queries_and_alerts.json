@@ -459,7 +459,7 @@
       "name": "ip_addresses_used_to_access_uc_data",
       "description": "The following SQL query will show you the IP addresses used to access Unity Catalog securables ('generateTemporaryTableCredential', 'generateTemporaryPathCredential', 'generateTemporaryVolumeCredential') actions over the last 90 days.",
       "query": "SELECT regexp_replace(source_ip_address, '(:\\d*)', '') AS source_ip_address, count(*) AS total_requests FROM system.access.audit WHERE event_date >= current_date() - INTERVAL 90 DAYS AND source_ip_address NOT IN ('', '0.0.0.0', '127.0.0.1') AND action_name IN ('generateTemporaryTableCredential', 'generateTemporaryPathCredential', 'generateTemporaryVolumeCredential') GROUP BY 1 ORDER BY total_requests DESC",
-      "parent": "system_tables/unity_catalog/admin/queries/"
+      "parent": "system_tables/audit/unity_catalog/admin/queries/"
   	},
         {
       "name": "ip_address_ranges_used_to_access_uc_data",
