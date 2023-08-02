@@ -20,6 +20,12 @@
       }
     },
     {
+      "name": "failed_login_attempts_last_90_days",
+      "description": "Repeated failed login attempts could indicate an attacker trying to brute force access to your lakehouse.",
+      "query": "SELECT event_date, ifnull(user_identity.email, request_params.user) AS email, workspace_id, action_name, count(*) AS num_failed_logins FROM system.access.audit WHERE event_date >= current_date() - INTERVAL 90 DAYS AND action_name IN ('aadBrowserLogin', 'aadTokenLogin', 'certLogin', 'jwtLogin', 'login', 'oidcBrowserLogin', 'samlLogin', 'tokenLogin') AND response.status_code IN (401, 403) GROUP BY 1, 2, 3, 4 ORDER BY event_date DESC",
+      "parent": "system_tables/audit/admin/queries/"
+  	},
+    {
       "name": "changes_to_admin_users",
       "description": "Databricks account and workspace admins should be limited to a few very trusted individuals responsible for managing the deployment. The granting of new admin privileges should be reviewed. The following query can be used to detect changes to admin users within the last 24 hours.",
       "query": "SELECT event_time, workspace_id, user_identity.email, lower(replace(audit_level, '_LEVEL', '')) AS account_or_workspace, action_name, request_params.targetUserName, request_params.targetGroupName, count(*) AS total FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND (action_name IN ('setAccountAdmin', 'changeAccountOwner', 'setAdmin', 'removeAdmin') OR (action_name IN ('addPrincipalToGroup', 'removePrincipalFromGroup') AND request_params.targetGroupName = 'admins')) GROUP BY 1, 2, 3, 4, 5, 6, 7 ORDER BY event_time DESC",
@@ -58,12 +64,12 @@
       }
     },
     {
-      "name": "download_data_from_control_plane",
+      "name": "data_downloads_from_control_plane",
       "description": "Databricks allows customers to configure whether they want users to be able to download notebook or SQL query results, but some customers might want to monitor and report rather than prevent entirely. The following query can be used to detect high numbers of downloads of results from notebooks, Databricks SQL, Unity Catalog volumes and MLflow, as well as the exporting of notebooks in formats that may contain query results within the last 24 hours.",
       "query": "with downloads AS (SELECT WINDOW(event_time, '60 minutes').start AS window_start, WINDOW(event_time, '60 minutes').end AS window_end, user_identity.email, collect_set(workspace_id) AS workspace_ids, collect_set(service_name) AS service_names, collect_set(action_name) AS action_names, count(*) AS total FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND (action_name IN ('downloadPreviewResults', 'downloadLargeResults', 'filesGet', 'getModelVersionDownloadUri', 'getModelVersionSignedDownloadUri') OR (action_name = 'workspaceExport' AND request_params.workspaceExportFormat != 'SOURCE') OR (action_name = 'downloadQueryResult' AND request_params.fileType != 'arrows')) GROUP BY 1, 2, 3) SELECT * FROM downloads WHERE total > 20 ORDER BY total DESC",
       "parent": "system_tables/audit/admin/queries/",
       "alert": {
-        "name": "download_data_from_control_plane",
+        "name": "data_downloads_from_control_plane",
         "options": {
           "column": "total",
           "custom_body": "<h3>There have been the following high number of downloads from the control plane within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
@@ -76,6 +82,12 @@
         "parent": "system_tables/audit/admin/alerts/"
       }
     },
+    {
+      "name": "data_downloads_from_control_plane_last_90_days",
+      "description": "Spikes in the number of downloads could indicate attempts to exfiltrate data.",
+      "query": "SELECT event_date, ifnull(user_identity.email, request_params.user) AS email, workspace_id, action_name, count(*) AS number_of_downloads FROM system.access.audit WHERE event_time >= current_date() - INTERVAL 90 DAYS AND (action_name IN ('downloadPreviewResults', 'downloadLargeResults', 'filesGet', 'getModelVersionDownloadUri', 'getModelVersionSignedDownloadUri') OR (action_name = 'workspaceExport' AND request_params.workspaceExportFormat != 'SOURCE') OR (action_name = 'downloadQueryResult' AND request_params.fileType != 'arrows')) GROUP BY 1, 2, 3, 4 ORDER BY event_date DESC",
+      "parent": "system_tables/audit/admin/queries/"
+  	},
     {
       "name": "ip_access_list_failures",
       "description": "Databricks allows customers to configure IP Access Lists to restrict access to their account & workspaces. However, they may want to monitor and be alerted whenever access is attempted from an untrusted network. The following query can be used to detect all IpAccessDenied and accountIpAclsValidationFailed events within the last 24 hours.",
@@ -95,6 +107,12 @@
         "parent": "system_tables/audit/admin/alerts/"
       }
     },
+    {
+      "name": "ip_access_list_failures_last_90_days",
+      "description": "Repeated IP access list failures could indicate attempts to brute force access to your lakehouse, or internal users trying to connect from untrusted networks.",
+      "query": "SELECT event_date, workspace_id, source_ip_address, count(*) AS number_of_failures FROM system.access.audit WHERE event_date >= current_date() - INTERVAL 90 DAYS AND action_name IN ('IpAccessDenied', 'accountIpAclsValidationFailed') GROUP BY 1, 2, 3 ORDER BY event_date DESC",
+      "parent": "system_tables/audit/admin/queries/"
+  	},
     {
       "name": "ip_access_list_changes",
       "description": "Databricks allows customers to configure IP access lists to restrict access to their account & workspaces. However, they may want to monitor and be alerted whenever thos IP access lists change. The following query can be used to detect all createIpAccessList, deleteIpAccessList and updateIpAccessList events within the last 24 hours.",
@@ -133,6 +151,12 @@
         "parent": "system_tables/audit/admin/alerts/"
       }
     },
+    {
+      "name": "databricks_access_to_customer_workspaces_last_90_days",
+      "description": "All logins to your workspace via the Databricks support process. This access is tied to a support ticket while also complying with your workspace configuration that may disable such access.",
+      "query": "SELECT event_time, workspace_id, request_params.user, request_params.approver, request_params.duration, request_params.reason, count(*) AS total FROM system.access.audit WHERE event_time >= current_date() - INTERVAL 90 DAYS AND action_name = 'databricksAccess' GROUP BY 1, 2, 3, 4, 5, 6 ORDER BY event_time DESC",
+      "parent": "system_tables/audit/admin/queries/"
+  	},
     {
       "name": "terms_of_service_changes",
       "description": "As Databricks rolls out new products and features, customers may occassionally have to agree to changes in our Terms of Service before they can opt-in to the new feature. Some customers might want to monitor when an account admin accepts such terms of service changes. The following SQL query can be used to detect any acceptance or sending of Terms of Service changes within the last 24 hours",
@@ -248,6 +272,12 @@
       }
     },
     {
+      "name": "destructive_activities_last_90_days",
+      "description": "A spike in the number of destructive activities (such as delete* events) may indicate a malicious attempt to cause disruption and harm.",
+      "query": "SELECT event_date, user_identity.email, if(isnotnull(request_params.workspace_id), request_params.workspace_id, workspace_id) AS workspace_id, service_name, action_name, count(*) AS num_destructive_activities FROM system.access.audit WHERE event_date >= current_date() - INTERVAL 90 DAYS AND user_identity.email NOT IN ('System-User') AND (startswith(action_name, 'delete') OR contains(lower(action_name), 'delete') OR contains(lower(action_name), 'trash')) GROUP BY 1, 2, 3, 4, 5 ORDER BY event_date DESC",
+      "parent": "system_tables/audit/admin/queries/"
+  	},
+    {
       "name": "potential_privilege_escalation",
       "description": "A high number of permission changes could indicate privelege escalation. The following SQL query can be used to detect users who have made a high number (>25) within an hour period over the last 24 hours. This query filters out changes made by Databricks System-Users, although you could optionally add them back in.",
       "query": "SELECT * FROM (SELECT WINDOW(event_time, '60 minutes').start AS window_start, WINDOW(event_time, '60 minutes').end AS window_end, user_identity.email, collect_set(if(isnotnull(request_params.workspace_id), request_params.workspace_id, workspace_id)) AS workspace_ids, collect_set(service_name) AS service_names, size(collect_set(service_name)) AS num_services, collect_set(action_name) AS action_names, size(collect_set(action_name)) AS num_actions, count(*) AS num_permissions_changes FROM system.access.audit WHERE action_name IN ('addPrincipalToGroup', 'changeDatabricksSqlAcl', 'changeDatabricksWorkspaceAcl', 'changeDbTokenAcl', 'changePasswordAcl', 'changeServicePrincipalAcls', 'generateDbToken', 'setAdmin', 'changeClusterAcl', 'changeClusterPolicyAcl', 'changeWarehouseAcls', 'changePermissions', 'transferObjectOwnership', 'changePipelineAcls', 'changeFeatureTableAcl', 'addPrincipalToGroup', 'changeIamRoleAcl', 'changeInstancePoolAcl', 'changeJobAcl', 'resetJobAcl', 'changeRegisteredModelAcl', 'changeInferenceEndpointAcl', 'putAcl', 'changeSecurableOwner', 'grantPermission', 'changeWorkspaceAcl', 'updateRoleAssignment', 'setAccountAdmin', 'changeAccountOwner', 'updatePermissions', 'updateSharePermissions') AND event_time >= current_timestamp() - INTERVAL 24 HOURS AND user_identity.email NOT IN ('System-User') GROUP BY 1, 2, 3) WHERE num_permissions_changes > 25 ORDER BY num_permissions_changes DESC",
@@ -267,6 +297,12 @@
       }
     },
     {
+      "name": "potential_privilege_escalation_last_90_days",
+      "description": "A spike in the number of permission changes could indicate privilege escalation.",
+      "query": "SELECT event_date, user_identity.email, if(isnotnull(request_params.workspace_id), request_params.workspace_id, workspace_id) AS workspace_id, service_name, action_name, count(*) AS num_permissions_changes FROM system.access.audit WHERE action_name IN ('addPrincipalToGroup', 'changeDatabricksSqlAcl', 'changeDatabricksWorkspaceAcl', 'changeDbTokenAcl', 'changePasswordAcl', 'changeServicePrincipalAcls', 'generateDbToken', 'setAdmin', 'changeClusterAcl', 'changeClusterPolicyAcl', 'changeWarehouseAcls', 'changePermissions', 'transferObjectOwnership', 'changePipelineAcls', 'changeFeatureTableAcl', 'addPrincipalToGroup', 'changeIamRoleAcl', 'changeInstancePoolAcl', 'changeJobAcl', 'resetJobAcl', 'changeRegisteredModelAcl', 'changeInferenceEndpointAcl', 'putAcl', 'changeSecurableOwner', 'grantPermission', 'changeWorkspaceAcl', 'updateRoleAssignment', 'setAccountAdmin', 'changeAccountOwner', 'updatePermissions', 'updateSharePermissions') AND event_date >= current_date() - INTERVAL 90 DAYS AND user_identity.email NOT IN ('System-User') GROUP BY 1, 2, 3, 4, 5 ORDER BY event_date DESC",
+      "parent": "system_tables/audit/admin/queries/"
+  	},
+    {
       "name": "repeated_access_to_secrets",
       "description": "Repeated attempts to access secrets could indicate an attempt to steal credentials. The following SQL query can be used to detect users who have attempted a high number (>10) of attempts to access secrets within an hour period over the last 24 hours. This query filters out requests from Databricks System-Users, although you could optionally add them back in.",
       "query": "SELECT * FROM (SELECT WINDOW(event_time, '60 minutes').start AS window_start, WINDOW(event_time, '60 minutes').end AS window_end, user_identity.email, collect_set(workspace_id) AS workspace_ids, size(collect_set(request_params.scope)) AS num_scopes_accessed, collect_set(request_params.scope) AS secret_scopes, size(collect_set(request_params.key)) AS num_keys_accessed, collect_set(request_params.key) AS secret_keys, count(*) AS num_requests FROM system.access.audit WHERE action_name = 'getSecret' AND event_time >= current_timestamp() - INTERVAL 24 HOURS AND user_identity.email NOT IN ('System-User') GROUP BY 1, 2, 3) WHERE num_keys_accessed >= 10 ORDER BY num_keys_accessed DESC",
@@ -285,7 +321,13 @@
         "parent": "system_tables/audit/admin/alerts/"
       }
     },
-       {
+    {
+      "name": "access_to_secrets_last_90_days",
+      "description": "A spike in the number of requests to access secrets could indicate attempts to steal credentials.",
+      "query": "SELECT event_date, user_identity.email, if(isnotnull(request_params.workspace_id), request_params.workspace_id, workspace_id) AS workspace_id, concat(request_params.scope, '/', request_params.key) AS secret, count(*) AS num_requests FROM system.access.audit WHERE action_name = 'getSecret' AND event_date >= current_date() - INTERVAL 90 DAYS AND user_identity.email NOT IN ('System-User') GROUP BY 1, 2, 3, 4 ORDER BY event_date DESC",
+      "parent": "system_tables/audit/admin/queries/"
+  	},
+    {
       "name": "access_to_multiple_workspaces",
       "description": "The same user accessing multiple workspaces within a short time frame could indicate lateral movement, or malicious attempts to increase the blast radius of an attack. The following SQL query can be used to detect users who have accessed a high number (>5) of different workspaces within the last 24 hours. This query filters out requests from unknown and Databricks System-Users, although you could optionally add them back in.",
       "query": "SELECT * FROM (SELECT event_date, user_identity.email, collect_set(workspace_id) AS workspace_ids, count(distinct workspace_id) AS num_workspaces_accessed FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND user_identity.email NOT IN ('System-User', 'unknown') GROUP BY 1, 2) WHERE num_workspaces_accessed >= 5 ORDER BY num_workspaces_accessed DESC",
@@ -374,6 +416,12 @@
       }
     },
     {
+      "name": "unauthorized_uc_data_requests_last_90_days",
+      "description": "Repeated unauthorized UC data requests could indicate privilege escalation, data exfiltration attempts or an attacker trying to brute force access to your data.",
+      "query": "SELECT event_date, ifnull(user_identity.email, request_params.user) AS email, request_params.workspace_id, action_name, count(*) AS total FROM system.access.audit WHERE action_name IN ('generateTemporaryTableCredential', 'generateTemporaryPathCredential', 'generateTemporaryVolumeCredential', 'deltaSharingQueryTable', 'deltaSharingQueryTableChanges') AND response.status_code IN (401, 403) AND event_date >= current_date() - INTERVAL 90 DAYS GROUP BY 1, 2, 3, 4 ORDER BY event_date DESC",
+      "parent": "system_tables/audit/unity_catalog/queries/"
+  	},
+    {
       "name": "high_number_of_read_writes",
       "description": "A high number of read/writes, particularly where the writes are to different locations could indicate data exfiltration attempts. The following  query can be used to detect a high number of read/writes of UC securables (>20) within an hour window over the last 24 hours, particularly where the user is writing to different locations to the reads.",
       "query": "WITH read_writes AS (SELECT WINDOW(event_time, '60 minutes').start AS window_start, WINDOW(event_time, '60 minutes').end AS window_end, user_identity.email, request_params.metastore_id, if(isnotnull(request_params.workspace_id), request_params.workspace_id, workspace_id) AS workspace_id, CASE WHEN contains(request_params.operation, 'CREATE') THEN 'WRITE' WHEN contains(request_params.operation, 'WRITE') THEN 'WRITE' WHEN contains(request_params.operation, 'READ') THEN 'READ' ELSE NULL END AS operation, request_params.operation AS full_operation, CASE WHEN isnotnull(request_params.table_full_name) THEN request_params.table_full_name WHEN isnotnull(request_params.volume_full_name) THEN request_params.volume_full_name WHEN isnotnull(request_params.url) THEN request_params.url  WHEN isnotnull(request_params.table_url) THEN request_params.table_url WHEN isnotnull(request_params.table_id) THEN request_params.table_id WHEN isnotnull(request_params.volume_id) THEN request_params.volume_id ELSE NULL END AS securable FROM system.access.audit WHERE action_name IN ('generateTemporaryTableCredential', 'generateTemporaryPathCredential', 'generateTemporaryVolumeCredential') AND WINDOW(event_time, '60 minutes').end >= current_timestamp() - INTERVAL 24 HOURS), read_writes_agg AS (SELECT window_start, window_end, email, metastore_id, collect_set(workspace_id) AS workspace_ids,collect_set(operation) AS operations, collect_set(securable) FILTER(WHERE operation = 'READ') AS read_securables, collect_set(securable) FILTER(WHERE operation = 'WRITE') AS write_securables, count(distinct securable) FILTER(WHERE operation = 'READ') AS num_reads, count(distinct securable) FILTER(WHERE operation = 'WRITE') AS num_writes, count(distinct operation, securable) AS total_read_writes FROM read_writes GROUP BY 1, 2, 3, 4 ORDER BY total_read_writes DESC), read_writes_high AS (SELECT window_start, window_end, email, metastore_id, workspace_ids, operations, read_securables, write_securables, array_except(write_securables, read_securables) AS writes_to_different_locations, num_reads, num_writes, size(array_except(write_securables, read_securables)) AS num_writes_to_different_locations, total_read_writes FROM read_writes_agg) SELECT * FROM read_writes_high WHERE num_reads > 20 AND num_writes > 20 AND num_writes_to_different_locations > 0 ORDER BY num_writes_to_different_locations DESC",
@@ -392,6 +440,12 @@
         "parent": "system_tables/audit/unity_catalog/alerts/"
       }
     },
+    {
+      "name": "read_writes_last_90_days",
+      "description": "A spike in the number of read/writes (particularly writes) could indicate attempts to exfiltrate data.",
+      "query": "SELECT event_date, user_identity.email, if(isnotnull(request_params.workspace_id), request_params.workspace_id, workspace_id) AS workspace_id, CASE WHEN contains(request_params.operation, 'CREATE') THEN 'WRITE' WHEN contains(request_params.operation, 'WRITE') THEN 'WRITE' WHEN contains(request_params.operation, 'READ') THEN 'READ' ELSE NULL END AS operation, request_params.operation AS full_operation, CASE WHEN isnotnull(request_params.table_full_name) THEN request_params.table_full_name WHEN isnotnull(request_params.volume_full_name) THEN request_params.volume_full_name WHEN isnotnull(request_params.url) THEN request_params.url WHEN isnotnull(request_params.table_url) THEN request_params.table_url WHEN isnotnull(request_params.table_id) THEN request_params.table_id WHEN isnotnull(request_params.volume_id) THEN request_params.volume_id ELSE NULL END AS securable, COUNT(*) AS number_of_read_writes FROM system.access.audit WHERE action_name IN ('generateTemporaryTableCredential', 'generateTemporaryPathCredential', 'generateTemporaryVolumeCredential') AND event_date >= current_date() - INTERVAL 90 DAYS GROUP BY 1, 2, 3, 4, 5, 6 ORDER BY event_date DESC",
+      "parent": "system_tables/audit/admin/queries/"
+  	},
     {
       "name": "delta_sharing_recipients_without_ip_acls",
       "description": "If you’re sharing personal data, delta sharing recipients should always be secured with IP access lists. The following SQL query can be used to detect the creation or update of delta sharing recipients which do not have IP access lists defined within the last 24 hours.",
