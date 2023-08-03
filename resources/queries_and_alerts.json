@@ -485,7 +485,7 @@
       }
     },
     {
-      "name": "delta_sharing_recipient_tosken_lifetime_change",
+      "name": "delta_sharing_recipient_token_lifetime_change",
       "description": "Delta Sharing recipient tokens are valid for the lifetime that you specify. As well as protecting Delta Shares via IP access lists, you should also ensure that the lifetime of a recipient token is set to a value that is suitable for the data within the metastore it is accessing. Once you have set a token lifetime, you may want to monitor whether an account admin ever changes that value. The following SQL can be used to detect changes to the Delta Sharing recipient token lifetime for a metastore within the last 24 hours.",
       "query": "SELECT event_time, user_identity.email, account_id, request_params.metastore_id, request_params.delta_sharing_recipient_token_lifetime_in_seconds, response.status_code, count(*) AS total FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND action_name = 'updateMetastore' AND request_params.delta_sharing_recipient_token_lifetime_in_seconds IS NOT NULL GROUP BY 1, 2, 3, 4, 5, 6 ORDER BY total DESC",
       "parent": "system_tables/audit/unity_catalog/queries/",
