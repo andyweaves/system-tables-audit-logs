@@ -32,6 +32,7 @@ SET spark.databricks.optimizer.rangeJoin.binSize=1024
 
 -- COMMAND ----------
 
+-- All access to Databricks by country
 WITH ip_addresses AS (SELECT
   inet_aton(regexp_replace(source_ip_address, '(:\\d*)', '')) AS source_ip_integer,
   COUNT(*) AS total
@@ -56,6 +57,7 @@ ORDER BY
 
 -- COMMAND ----------
 
+-- Access to UC securables by country
 WITH ip_addresses AS (SELECT
   inet_aton(regexp_replace(source_ip_address, '(:\\d*)', '')) AS source_ip_integer,
   COUNT(*) AS total
@@ -81,6 +83,34 @@ ORDER BY
 
 -- COMMAND ----------
 
+-- Access to UC securables by US state
+WITH ip_addresses AS (SELECT
+  inet_aton(regexp_replace(source_ip_address, '(:\\d*)', '')) AS source_ip_integer,
+  COUNT(*) AS total
+FROM
+  system.access.audit
+WHERE
+  event_date >= current_date() - INTERVAL 90 DAYS
+  AND action_name IN ('generateTemporaryTableCredential', 'generateTemporaryPathCredential', 'generateTemporaryVolumeCredential', 'deltaSharingQueryTable', 'deltaSharingQueryTableChanges')
+  AND source_ip_address NOT IN ('', '0.0.0.0')
+  AND NOT regexp(source_ip_address, '(^127\.)|(^10\.)|(^172\.1[6-9]\.)|(^172\.2[0-9]\.)|(^172\.3[0-1]\.)|(^192\.168\.)')
+GROUP BY 1
+)
+SELECT /*+ RANGE_JOIN(cb, 1024) */
+  cl.subdivision_1_iso_code AS state,
+  SUM(total) AS num_requests
+FROM
+  ip_addresses ip 
+  LEFT JOIN main.geolite2.city_blocks_ipv4_with_ranges cb ON ip.source_ip_integer BETWEEN cb.network_start_integer AND cb.network_last_integer
+  LEFT JOIN main.geolite2.city_locations cl ON cb.geoname_id = cl.geoname_id
+WHERE cl.country_iso_code = 'US'
+GROUP BY 1
+ORDER BY
+  num_requests DESC
+
+-- COMMAND ----------
+
+-- All locations used to access Databricks
 WITH ip_addresses AS (SELECT
   inet_aton(regexp_replace(source_ip_address, '(:\\d*)', '')) AS source_ip_integer,
   service_name,
@@ -114,6 +144,7 @@ ORDER BY
 
 -- COMMAND ----------
 
+-- All locations used to access UC securables
 WITH ip_addresses AS (SELECT
   inet_aton(regexp_replace(source_ip_address, '(:\\d*)', '')) AS source_ip_integer,
   CASE WHEN isnotnull(request_params.table_full_name) THEN request_params.table_full_name WHEN isnotnull(request_params.volume_full_name) THEN request_params.volume_full_name WHEN isnotnull(request_params.share) THEN request_params.share WHEN isnotnull(request_params.url) THEN request_params.url WHEN isnotnull(request_params.table_url) THEN request_params.table_url WHEN isnotnull(request_params.table_id) THEN request_params.table_id WHEN isnotnull(request_params.volume_id) THEN request_params.volume_id ELSE NULL END AS securable, 
