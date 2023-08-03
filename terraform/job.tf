@@ -2,7 +2,7 @@ resource "databricks_job" "this" {
   name = "System Tables"
 
   dynamic "task" {
-    for_each = local.queries
+    for_each = local.alerts
     content {
       task_key = task.value
 
