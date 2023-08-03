@@ -26,7 +26,7 @@ resource "databricks_sql_query" "query" {
 }
 
 resource "databricks_sql_alert" "alert" {
-  for_each = local.queries
+  for_each = local.alerts
   query_id = databricks_sql_query.query[each.value].id
   name     = local.data_map[each.value].alert.name
   parent   = "folders/${databricks_directory.this[local.data_map[each.value].alert.parent].object_id}"
