@@ -177,6 +177,25 @@
       }
     },
     {
+      "name": "account_settings_changes",
+      "description": "Many account-level settings perform a security-enforcing function. The following SQL query can be used to detect changes in account level settings within the last 24 hours.",
+      "query": "SELECT event_time, user_identity.email, account_id, request_params.settingTypeName AS setting_name, request_params.settingValueForAudit AS setting_value, count(*) AS total FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND audit_level = 'ACCOUNT_LEVEL' AND service_name = 'accounts' AND action_name = 'setSetting' GROUP BY 1, 2, 3, 4, 5 ORDER BY event_time DESC",
+      "parent": "system_tables/audit/admin/queries/",
+      "alert": {
+        "name": "account_settings_changes",
+        "options": {
+          "column": "total",
+          "custom_body": "<h3>There have been the following account settings changes detected within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
+          "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
+          "muted": false,
+          "op": ">",
+          "value": "0"
+        },
+        "rearm": "3600",
+        "parent": "system_tables/audit/admin/alerts/"
+      }
+    },
+    {
       "name": "global_init_script_changes",
       "description": "Global init scripts run arbitrary code that is executed on every cluster. This can be a very powerful capability but with great power comes great responsibility. The following SQL query can be used to detect the creation, update and deletion of global init scripts within the last 24 hours.",
       "query": "SELECT event_time, workspace_id, user_identity.email, source_ip_address, action_name, request_params.name, request_params.script_id, request_params.enabled, request_params.`script-SHA256`, response.status_code, count(*) AS total FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND service_name = 'globalInitScripts' GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 ORDER BY event_time DESC",
