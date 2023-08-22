@@ -23,6 +23,10 @@ resource "databricks_sql_query" "query" {
   query          = local.data_map[each.value].query
   description    = local.data_map[each.value].description
   parent         = "folders/${databricks_directory.this[local.data_map[each.value].parent].object_id}"
+
+  tags = [
+    "system-tables",
+  ]
 }
 
 resource "databricks_sql_alert" "alert" {

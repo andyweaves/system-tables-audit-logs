@@ -26,4 +26,10 @@ resource "databricks_job" "this" {
     quartz_cron_expression = "1 1 * * * ?"
     timezone_id            = "UTC"
   }
+
+  tags = {
+    project = "system-tables"
+    owner   = data.databricks_current_user.me.user_name
+  }
+
 }
