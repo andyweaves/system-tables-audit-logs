@@ -548,7 +548,7 @@
   	},
     {
       "name": "clam_av_infected_files_detected",
-      "description": "Customers using one of our compliance security profile offerings have additional monitoring agents including antivirus installed on their data plane hosts. The following query can be used to detect all antivirus scan events during which infected files have been detected within the last 24 hours.",
+      "description": "Customers using one of our compliance security profile offerings have additional monitoring agents including antivirus installed on their data plane hosts. The following query can be used to detect all antivirus scan events during which infected files have been detected within the last 24 hours. Note that this SQL query/alert will trigger when the ClamAV scan has completed, which may be several hours after the infected file has been found. See clam_av_infected_files_found for a query/alert that will trigger as soon as an infected file has been found.",
       "query": "SELECT event_time, workspace_id, request_params.instanceId, regexp_extract(response.result, ('Infected files: (\\\\d+)')) AS infected_files FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND service_name = 'clamAVScanService-dataplane' AND startswith(response.result, 'Infected files:') AND regexp_extract(response.result, ('Infected files: (\\\\d+)')) > 0 ORDER BY event_time DESC",
       "parent": "system_tables/audit/compliance_security_profile/queries/",
       "alert": {
@@ -556,6 +556,25 @@
         "options": {
           "column": "infected_files",
           "custom_body": "<h3>There have been the following infected files detected by ClamAV within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
+          "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
+          "muted": false,
+          "op": ">",
+          "value": "0"
+        },
+        "rearm": "3600",
+        "parent": "system_tables/audit/compliance_security_profile/alerts/"
+      }
+    },
+    {
+      "name": "clam_av_infected_files_found",
+      "description": "Customers using one of our compliance security profile offerings have additional monitoring agents including antivirus installed on their data plane hosts. The following query can be used to detect all antivirus scan events during which infected files have been found within the last 24 hours. Note, that this query/alert will detect infected files as soon as they have been found, rather than when the ClamAV scan finishes.",
+      "query": "SELECT event_time, workspace_id, request_params.instanceId, regexp_extract(response.result, ': (.*) FOUND') AS signature, regexp_extract(response.result, '(.*):') AS file_path FROM system.access.audit WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS AND service_name = 'clamAVScanService-dataplane' AND contains(response.result, 'FOUND') ORDER BY event_time DESC",
+      "parent": "system_tables/audit/compliance_security_profile/queries/",
+      "alert": {
+        "name": "clam_av_infected_files_found",
+        "options": {
+          "column": "infected_files",
+          "custom_body": "<h3>There have been the following infected files found by ClamAV within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
           "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
           "muted": false,
           "op": ">",
