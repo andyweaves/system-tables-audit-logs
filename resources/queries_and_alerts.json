@@ -449,7 +449,7 @@
         "name": "high_number_of_read_writes",
         "options": {
           "column": "num_writes_to_different_locations",
-          "custom_body": "<h3>There have been the following infected files detected by ClamAV within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
+          "custom_body": "<h3>There have been the following high number of reads/writes to UC securables within the last 24 hours:</h3><br>{{QUERY_RESULT_TABLE}}<br><a href='{{QUERY_URL}}'>Link to query</a><br><a href='{{ALERT_URL}}'>Link to alert</a>",
           "custom_subject": "Alert {{ALERT_NAME}} changed status to {{ALERT_STATUS}} because the number of unexpected events is {{ALERT_CONDITION}} than {{ALERT_THRESHOLD}}",
           "muted": false,
           "op": ">",
