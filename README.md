@@ -1,7 +1,8 @@
 # system-tables-audit-logs
 
-Automatic creation of important SQL Queries &amp; Alerts for Databricks System Tables `system.access.audit` logs. See the docs for more information:
+Automatic creation of important SQL Queries &amp; Alerts for Databricks System Tables `system.access.audit` logs. See the blog post & docs for more information:
 
+* [Databricks blog post](https://www.databricks.com/blog/improve-lakehouse-security-monitoring-using-system-tables-databricks-unity-catalog)
 * [AWS Docs](https://docs.databricks.com/administration-guide/system-tables/audit-logs.html)
 * [Azure Docs](https://learn.microsoft.com/en-gb/azure/databricks/administration-guide/system-tables/audit-logs)
 
