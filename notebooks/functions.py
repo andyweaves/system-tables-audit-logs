@@ -52,24 +52,46 @@ class DatabricksSQLHelper:
     parent = self._get_or_create_parent(path=query["parent"])
 
     return self.workspace_client.queries.create(
-    name=query["name"], 
-    data_source_id=self.sources[0].id,
-    description=query["description"], 
-    query=query["query"],
-    parent=f"folders/{parent.object_id}")
+      query= sql.CreateQueryRequestQuery(
+        display_name=query["name"], 
+        description=query["description"], 
+        query_text=query["query"],
+        parent_path=parent.path
+      )
+    )
 
   def _create_sql_alert(self, alert, qid):
 
     parent = self._get_or_create_parent(path=alert["parent"])
+    match alert.get("options").get("op"):
+      case ">":
+        op = sql.AlertOperator.GREATER_THAN
+      case ">=":  
+        op = sql.AlertOperator.GREATER_THAN_OR_EQUAL
+      case "<":
+        op = sql.AlertOperator.LESS_THAN
+      case "<=":
+        op = sql.AlertOperator.LESS_THAN
+      case "==":
+        op = sql.AlertOperator.EQUAL
+      case "!=":
+        op = sql.AlertOperator.NOT_EQUAL
 
-    options = sql.AlertOptions(
-      column=alert.get("options").get("column"), 
-      op=alert.get("options").get("op"), 
-      value=alert.get("options").get("value"), 
-      custom_subject=alert.get("options").get("custom_subject"), 
-      custom_body=alert.get("options").get("custom_body"))
 
-    return self.workspace_client.alerts.create(options=options, query_id=qid, name=alert["name"], parent=f"folders/{parent.object_id}", rearm=alert.get("rearm"))
+    alert_request = sql.CreateAlertRequestAlert(condition=sql.AlertCondition(operand=sql.AlertConditionOperand(
+        column=sql.AlertOperandColumn(alert.get("options").get("column"))),
+                                                                   op=op,
+                                                                   threshold=sql.AlertConditionThreshold(
+                                                                       value=sql.AlertOperandValue(
+                                                                           double_value = alert.get("options").get("value")))),
+                                      display_name = alert["name"],
+                                      parent_path = parent.path,
+                                      seconds_to_retrigger = alert.get("rearm"),
+                                      custom_subject = alert.get("options").get("custom_subject"), 
+                                      custom_body = alert.get("options").get("custom_body"),
+                                      query_id=qid)
+
+    return self.workspace_client.alerts.create(alert = alert_request)
   
   def get_workspace_client(self) -> WorkspaceClient:
 
@@ -80,17 +102,17 @@ class DatabricksSQLHelper:
     self.urls.clear()
 
     q = self._create_sql_query(query=query)
-    print(f"Successfully created query '{q.name}' with id {q.id}")
+    print(f"Successfully created query '{q.display_name}' with id {q.id}")
     #displayHTML(f"Successfully created query <a href='https://{self.base_url}/sql/editor/{q.id}?o={self.org_id}'>{q.name}</a>")
-    self.urls.update({"query_url": f"<a href='https://{self.base_url}/sql/editor/{q.id}?o={self.org_id}'>{q.name}</a>"})
+    self.urls.update({"query_url": f"<a href='https://{self.base_url}/sql/editor/{q.id}?o={self.org_id}'>{q.display_name}</a>"})
 
     alert = query.get("alert") 
 
     if alert:
       a = self._create_sql_alert(alert=alert, qid=q.id)
-      print(f"Successfully created alert '{a.name}' with id {a.id}")
+      print(f"Successfully created alert '{a.display_name}' with id {a.id}")
       #displayHTML(f"Successfully created alert <a href='https://{self.base_url}/sql/alerts/{a.id}?o={self.org_id}'>{a.name}</a>")
-      self.urls.update({"alert_url": f"<a href='https://{self.base_url}/sql/alerts/{a.id}?o={self.org_id}'>{a.name}</a>"})
+      self.urls.update({"alert_url": f"<a href='https://{self.base_url}/sql/alerts/{a.id}?o={self.org_id}'>{a.display_name}</a>"})
 
     return self.urls
 
