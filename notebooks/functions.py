@@ -27,15 +27,15 @@ class DatabricksSQLHelper:
 
   def _get_context(self):
 
-    return json.loads(dbutils.notebook.entry_point.getDbutils().notebook().getContext().toJson())
+    return json.loads(dbutils.notebook.entry_point.getDbutils().notebook().getContext().safeToJson())
 
   def _get_databricks_workspace_url(self) -> str:
     context = self._get_context()
-    return f"{context['tags']['browserHostName']}"
+    return f"{context['attributes']['browserHostName']}"
 
   def _get_databricks_org_id(self) -> str:
     context = self._get_context()
-    return f"{context['tags']['orgId']}"
+    return f"{context['attributes']['orgId']}"
 
   def _get_sources(self) -> list:
     

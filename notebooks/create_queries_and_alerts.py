@@ -1,9 +1,6 @@
 # Databricks notebook source
 # MAGIC %pip install -r ../requirements.txt --upgrade
-
-# COMMAND ----------
-
-dbutils.library.restartPython()
+# MAGIC dbutils.library.restartPython()
 
 # COMMAND ----------
 
