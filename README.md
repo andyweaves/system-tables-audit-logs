@@ -122,14 +122,17 @@ In Databricks CLI 0.288.0, the variable-override file is `.databricks/bundle/<ta
 
 #### Fail-loudly check (cold-clone behavior)
 
-If someone clones this repo and runs `databricks bundle validate` without setting any variables, they get an actionable error like:
+If someone clones this repo and runs `databricks bundle validate` without configuring credentials or setting the required variables, they get an actionable error. In CLI 0.288.0, the host variable is used to configure workspace auth (not treated as a plain bundle variable), so the failure surfaces as an authentication error rather than a missing-variable error:
 
 ```
-Error: no value assigned to required variable host.
-Assignment can be done through the "--var" flag or by setting the BUNDLE_VAR_host environment variable
+Error: failed during request visitor: default auth: cannot configure default credentials,
+please check https://docs.databricks.com/en/dev-tools/auth.html#databricks-client-unified-authentication
+to configure credentials for your preferred authentication method.
 ```
 
-(Exact error text comes from the CLI.) The three required variables — `host`, `warehouse_id`, `alert_emails` — have no defaults in the committed template precisely so this error surfaces instead of the bundle silently validating against a placeholder workspace. If you see this error, it means step 4 above was skipped.
+If you have a profile configured in `~/.databrickscfg` but no `variable-overrides.json`, the error will instead be an invalid token or auth failure against that profile's workspace.
+
+In both cases the exit code is non-zero and the error is actionable — the bundle does NOT silently validate against a placeholder workspace. The three required variables — `host`, `warehouse_id`, `alert_emails` — have no defaults in the committed template. If you see either error above, complete step 4 (create `.databricks/bundle/dev/variable-overrides.json`) and ensure your CLI profile is authenticated.
 
 #### Updating alerts (orphan-cleanup runbook)
 
