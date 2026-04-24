@@ -1,1 +1,2 @@
 databricks-sdk
+pyyaml>=6.0
