@@ -156,6 +156,10 @@ def _build_alert_resource(entry: dict) -> dict:
             "threshold": {
                 "value": _threshold_value(options["value"]),
             },
+            # Empty result (no matching audit events) means "nothing to alert
+            # on", not an evaluation failure. Default is ERROR, which surfaces
+            # every normal empty window as a broken alert in the UI.
+            "empty_result_state": "OK",
             "notification": {
                 # Cast string rearm ("3600") to int — GEN-07.
                 "retrigger_seconds": int(alert["rearm"]),
