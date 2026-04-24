@@ -24,6 +24,162 @@ Automatic creation of important SQL Queries &amp; Alerts for Databricks System T
 
 Alternatively you can setup everything by following instructions in the [terraform](terraform) folder.  Terraform code is also using data from the config file [queries_and_alerts.json](resources/queries_and_alerts.json) to create all objects.
 
+### Using Databricks Asset Bundles (DAB)
+
+The DAB path deploys Alerts v2 (the new SQL Alerts resource) directly from `resources/queries_and_alerts.json` via `databricks bundle deploy`. Unlike the notebook and Terraform paths, it uses inline SQL (no separate Query resources) and native Alert scheduling (no separate Job resource). It is additive — the notebook and Terraform paths are unchanged.
+
+#### Prerequisites
+
+- Databricks CLI >= 0.288.0 (run `databricks --version` to check; install from https://docs.databricks.com/dev-tools/cli/install.html)
+- Python >= 3.10 with `pyyaml>=6.0` (the generator's only runtime dependency — `pip install -r requirements.txt`)
+- An authenticated CLI profile (see `databricks auth login` or `~/.databrickscfg`)
+- A SQL Warehouse in the target workspace (you'll need its ID)
+- At least one email address for alert notifications
+- Optional: `databricks-sdk >= 0.51.0` (only needed if you want to write your own Python-based smoke tests; NOT required for the generator itself)
+
+#### Parity table: DAB vs Terraform vs Notebook
+
+| Capability                                    | DAB                                            | Terraform                                   | Notebook                                         |
+|-----------------------------------------------|------------------------------------------------|---------------------------------------------|--------------------------------------------------|
+| Alerts v2 (inline SQL, native schedule)       | Yes                                            | No (Alerts v1 + Job)                        | No (Alerts v1)                                   |
+| Creates separate Query resources              | No (inline `query_text`)                       | Yes (`databricks_query`)                    | Yes (via SQL API)                                |
+| Creates separate Job for schedule             | No (native Alert schedule)                     | Yes (`databricks_job`)                      | No (unscheduled)                                 |
+| Single-command deploy                         | `databricks bundle deploy`                     | `terraform apply`                           | Run notebook manually                            |
+| State tracking / diff-aware destroy           | Partial (see "Updating alerts" below)          | Yes (terraform state)                       | No (manual `clean_up = True`)                    |
+| Dev/prod target isolation                     | Yes (`[dev <user>]` prefix native)             | Via workspace separation                    | No                                               |
+| Works from CI without DB workspace access     | Yes                                            | Yes                                         | No (runs inside Databricks)                      |
+| Operator `<=` correctness                     | `LESS_THAN_OR_EQUAL` (correct)                 | `LESS_THAN_OR_EQUAL` (correct)              | `LESS_THAN` (bug — see `notebooks/functions.py:74`) |
+| Geolocation UDF deployment                    | Not yet (v2+)                                  | No                                          | Yes                                              |
+
+Use whichever path matches how you already deploy Databricks resources. The JSON source of truth (`resources/queries_and_alerts.json`) is shared across all three.
+
+#### What the generator does for you
+
+Before `bundle validate` or `bundle deploy` runs, a preinit script (`bundle/src/generate_alerts.py`) reads `resources/queries_and_alerts.json` and writes one Alerts v2 YAML per entry into `bundle/generated/alerts.yml`. It:
+
+- Silently skips entries without an `alert` sub-object (query-only catalog items — 15 of the 45 entries are query-only and are intentionally skipped)
+- Maps the 6 JSON comparison operators (`>`, `>=`, `<`, `<=`, `==`, `!=`) to the correct Alerts v2 enum values (operator map sourced from `terraform/sql.tf`, not the buggy `notebooks/functions.py:74`)
+- Casts `alert.rearm` from string to int for `retrigger_seconds`
+- Emits `threshold.value.double_value` for numeric thresholds (Alerts v2 rejects `string_value` on numeric columns — avoids `INVALID_PARAMETER_VALUE`)
+- Sets `empty_result_state: OK` on every alert (the default `ERROR` causes false evaluation failures when your audit query returns zero rows in the healthy state)
+- Emits an `evaluation.notification.subscriptions` block for every alert — alerts can never silently deploy without notifications
+- Raises a clear `ValueError` on unknown operators or missing required fields (no silent fallbacks)
+
+Regenerate is automatic — you don't invoke the generator directly. Just run `bundle validate` or `bundle deploy`.
+
+#### Copy-and-fill workflow
+
+The committed `bundle/databricks.yml` declares three variables with NO defaults: `host`, `warehouse_id`, `alert_emails`. This is intentional — `bundle validate` will fail loudly with a clear error if you don't set them, rather than silently deploying to someone else's workspace.
+
+In Databricks CLI 0.288.0, the variable-override file is `.databricks/bundle/<target>/variable-overrides.json`. This path is auto-created by the CLI and is already gitignored by the `.databricks/` directory convention — you cannot accidentally commit it.
+
+**Note:** Earlier DAB conventions suggested `bundle/databricks.dev.yml` for local overrides. That file is NOT auto-loaded by CLI 0.288.0. Use `.databricks/bundle/<target>/variable-overrides.json` as shown below.
+
+1. Install and verify the CLI:
+   ```bash
+   databricks --version
+   # Must print 0.288.0 or higher.
+   ```
+
+2. Configure an authentication profile (one-time, per workspace):
+   ```bash
+   databricks auth login --host https://<your-workspace>.cloud.databricks.com --profile <your-profile>
+   # Follow the OAuth browser flow. Replace <your-profile> with any name you pick, e.g. "demo-workspace".
+   ```
+
+3. Find your SQL Warehouse ID:
+   - Databricks UI > SQL > SQL Warehouses > click your warehouse > copy the ID from the URL (e.g. `/sql/warehouses/abc123`), OR
+   - `databricks warehouses list -p <your-profile>` from the CLI.
+
+4. Create the variable-overrides file for the `dev` target:
+   ```bash
+   mkdir -p .databricks/bundle/dev
+   cat > .databricks/bundle/dev/variable-overrides.json <<'EOF'
+   {
+     "host": "https://<your-workspace>.cloud.databricks.com",
+     "warehouse_id": "<your-sql-warehouse-id>",
+     "alert_emails": "you@example.com"
+   }
+   EOF
+   ```
+   - `host` MUST be a literal URL string. Do NOT use `${var.*}` substitution — CLI 0.288.0 rejects variable interpolation for auth-configuring fields.
+   - `alert_emails` is a string; a single recipient is the validated path. Multi-recipient comma-splitting is on the v2+ roadmap.
+
+5. Validate without deploying:
+   ```bash
+   cd bundle
+   databricks bundle validate --target dev -p <your-profile>
+   ```
+   Expected: exit 0, preinit runs, generator writes `generated/alerts.yml`, all alerts validate against the CLI schema.
+
+6. Deploy:
+   ```bash
+   databricks bundle deploy --target dev -p <your-profile>
+   ```
+   Expected: 30 alerts created in your workspace under the `[dev <your-username>]` prefix (DAB applies this prefix automatically for `mode: development` targets). You should see one line per alert in the output.
+
+7. Verify in the UI: Databricks UI > SQL > Alerts > filter by `[dev <your-username>]`. The number of alerts should match the alertable entries in your JSON (query-only entries are skipped by design).
+
+#### Fail-loudly check (cold-clone behavior)
+
+If someone clones this repo and runs `databricks bundle validate` without setting any variables, they get an actionable error like:
+
+```
+Error: no value assigned to required variable host.
+Assignment can be done through the "--var" flag or by setting the BUNDLE_VAR_host environment variable
+```
+
+(Exact error text comes from the CLI.) The three required variables — `host`, `warehouse_id`, `alert_emails` — have no defaults in the committed template precisely so this error surfaces instead of the bundle silently validating against a placeholder workspace. If you see this error, it means step 4 above was skipped.
+
+#### Updating alerts (orphan-cleanup runbook)
+
+DAB is NOT diff-aware the way Terraform is. Specifically:
+
+- Adding a new alert to `resources/queries_and_alerts.json` and re-running `bundle deploy` will create the new alert — as expected.
+- Modifying an existing alert (changing its SQL, threshold, or schedule) and re-running `bundle deploy` will update the alert in place — as expected.
+- **Removing an alert from the JSON and re-running `bundle deploy` does NOT delete the alert from the workspace.** The alert becomes an orphan: it still exists, still runs on its schedule, still emails you, but is no longer managed by the bundle.
+
+To clean up orphaned alerts, you have three options:
+
+**Option A: Full refresh (safest, destructive).**
+```bash
+cd bundle
+databricks bundle destroy --target dev -p <your-profile>
+databricks bundle deploy --target dev -p <your-profile>
+```
+This deletes every alert this bundle previously created (filtered by the `[dev <your-username>]` prefix) and redeploys only the current JSON contents.
+
+**Option B: Targeted UI delete (when you know which alert to remove).**
+1. Databricks UI > SQL > Alerts
+2. Filter by `[dev <your-username>]` to see only this bundle's alerts
+3. Select the orphan alert(s) and delete
+
+**Option C: UI delete as a fallback when `bundle destroy` is network-blocked.**
+Some workspaces enforce an IP Access List that blocks CLI calls from untrusted source IPs — you will see `Source IP address: X.X.X.X is blocked` when running `bundle destroy`. If you hit this, use Option B — manually delete the `[dev <your-username>]`-prefixed alerts in the UI. The end state is identical to `bundle destroy`.
+
+#### Troubleshooting
+
+**`Error: no value assigned to required variable X`**
+You skipped step 4 of the copy-and-fill workflow. Create `.databricks/bundle/dev/variable-overrides.json` with `host`, `warehouse_id`, `alert_emails`.
+
+**`Source IP address: X.X.X.X is blocked`**
+Your workspace has an IP Access List that does not include your current source IP. Either run from an IP in the allow list, or use the UI-delete fallback (see "Updating alerts" Option C) for cleanup operations.
+
+**Provider signature / PGP key errors during `bundle deploy`**
+The Databricks Terraform provider's PGP signing key expired in April 2026. If you see a provider-verification error, try using a local Terraform binary:
+```bash
+export DATABRICKS_TF_EXEC_PATH=$(which terraform)   # e.g. /opt/homebrew/bin/terraform on macOS, /usr/local/bin/terraform on Linux
+export DATABRICKS_TF_VERSION=1.13.3
+databricks bundle deploy --target dev -p <your-profile>
+```
+Make sure `terraform` is installed: `brew install terraform` on macOS, or see https://developer.hashicorp.com/terraform/install. This workaround bypasses the bundled provider download; once the upstream PGP key is refreshed, you can unset these env vars.
+
+**`INVALID_PARAMETER_VALUE` on alert evaluation**
+If you added a new alert and see this, check that `alert.options.value` in your JSON is numeric (e.g. `"5"`, not `"five"`). The generator emits `threshold.value.double_value` for numeric thresholds; non-numeric values fall back to `string_value`, which Alerts v2 rejects when the source column is numeric.
+
+**Alert evaluation marked `ERROR` when the query returns zero rows**
+This should not happen — the generator sets `empty_result_state: OK` on every alert. If you see this, make sure you ran `bundle deploy` (not just copied old YAML). Zero-row results are the healthy state for most audit alerts; `OK` (not `ERROR`) is the correct evaluation.
+
 ## Queries and Alerts
 
 The [create_queries_and_alerts](notebooks/create_queries_and_alerts.py) notebook currently creates the following SQL queries and alerts:

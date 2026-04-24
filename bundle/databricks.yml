@@ -6,11 +6,11 @@ include:
 
 variables:
   host:
-    description: "Databricks workspace URL (e.g. https://adb-xxx.azuredatabricks.net). Set in bundle/databricks.dev.yml (gitignored) or DATABRICKS_HOST env var."
+    description: "Databricks workspace URL (e.g. https://adb-xxx.azuredatabricks.net). Set in .databricks/bundle/<target>/variable-overrides.json (auto-gitignored by DAB). See README.md > Using Databricks Asset Bundles > Copy-and-fill workflow."
   warehouse_id:
-    description: "SQL Warehouse ID to run alerts on. Set in bundle/databricks.dev.yml (gitignored)."
+    description: "SQL Warehouse ID to run alerts on. Set in .databricks/bundle/<target>/variable-overrides.json (auto-gitignored by DAB)."
   alert_emails:
-    description: "Comma-separated email addresses for alert notifications. Set in bundle/databricks.dev.yml (gitignored)."
+    description: "Email address (or comma-separated list) for alert notifications. Set in .databricks/bundle/<target>/variable-overrides.json (auto-gitignored by DAB)."
   alert_schedule:
     description: "Quartz cron schedule (6-field format) for alert evaluation"
     default: "1 1 * * * ?"
