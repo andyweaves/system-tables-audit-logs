@@ -166,6 +166,11 @@ cython_debug/
 bundle/databricks.dev.yml
 bundle/databricks.local.yml
 
+# DAB CLI state + real variable-overrides (workspace host, emails, warehouse ID)
+# DAB normally writes its own .databricks/.gitignore but only after first
+# validate/deploy — this is belt-and-braces in case that's absent.
+bundle/.databricks/
+
 # DAB generator output — regenerated on every deploy, not source
 bundle/generated/*.yml
 !bundle/generated/.gitkeep
