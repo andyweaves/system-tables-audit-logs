@@ -49,6 +49,26 @@ REQUIRED_ALERT_FIELDS = [
 ]
 
 
+def _threshold_value(raw_value):
+    """Pack a raw JSON threshold value into the Alerts v2 typed wrapper.
+
+    Alerts v2 rejects `string_value` thresholds when the source column is
+    numeric (e.g. COUNT aggregates return BIGINT) with
+    "Incompatible type in alert evaluation" / INVALID_PARAMETER_VALUE.
+    All thresholds in queries_and_alerts.json are numeric counts/sums stored
+    as JSON strings; cast to double when parseable, otherwise fall back to
+    string.
+    """
+    if isinstance(raw_value, bool):
+        return {"bool_value": raw_value}
+    if isinstance(raw_value, (int, float)):
+        return {"double_value": float(raw_value)}
+    try:
+        return {"double_value": float(raw_value)}
+    except (TypeError, ValueError):
+        return {"string_value": str(raw_value)}
+
+
 def _map_operator(op_symbol: str) -> str:
     """Translate JSON operator symbol to Alerts v2 ComparisonOperator enum.
 
@@ -134,7 +154,7 @@ def _build_alert_resource(entry: dict) -> dict:
             "comparison_operator": _map_operator(options["op"]),
             "source": {"name": options["column"]},
             "threshold": {
-                "value": {"string_value": str(options["value"])},
+                "value": _threshold_value(options["value"]),
             },
             "notification": {
                 # Cast string rearm ("3600") to int — GEN-07.
