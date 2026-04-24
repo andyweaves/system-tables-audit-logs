@@ -1,0 +1,33 @@
+bundle:
+  name: system-tables-audit-logs
+
+include:
+  - generated/*.yml
+
+variables:
+  host:
+    description: "Databricks workspace URL (e.g. https://adb-xxx.azuredatabricks.net). Set in bundle/databricks.dev.yml (gitignored) or DATABRICKS_HOST env var."
+  warehouse_id:
+    description: "SQL Warehouse ID to run alerts on. Set in bundle/databricks.dev.yml (gitignored)."
+  alert_emails:
+    description: "Comma-separated email addresses for alert notifications. Set in bundle/databricks.dev.yml (gitignored)."
+  alert_schedule:
+    description: "Quartz cron schedule (6-field format) for alert evaluation"
+    default: "1 1 * * * ?"
+  alert_timezone:
+    description: "Java timezone ID for alert schedule"
+    default: "UTC"
+
+workspace:
+  host: ${var.host}
+
+experimental:
+  scripts:
+    preinit: python3 bundle/src/generate_alerts.py
+
+targets:
+  dev:
+    mode: development
+    default: true
+  prod:
+    mode: production
