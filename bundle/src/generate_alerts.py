@@ -32,17 +32,28 @@ OPS_MAPPING = {
     ">":  "GREATER_THAN",
     ">=": "GREATER_THAN_OR_EQUAL",
     "<":  "LESS_THAN",
-    "<=": "LESS_THAN_OR_EQUAL",
+    "<=": "LESS_THAN_OR_EQUAL",   # regression guard: notebooks/functions.py:74 maps this to LESS_THAN (bug)
     "==": "EQUAL",
     "!=": "NOT_EQUAL",
 }
+
+# Dotted paths that every alertable entry must supply. Used by validate_entry().
+REQUIRED_ALERT_FIELDS = [
+    "name",
+    "query",
+    "alert.name",
+    "alert.rearm",
+    "alert.options.op",
+    "alert.options.column",
+    "alert.options.value",
+]
 
 
 def _map_operator(op_symbol: str) -> str:
     """Translate JSON operator symbol to Alerts v2 ComparisonOperator enum.
 
-    Raises ValueError on unknown symbol — plan 01-04 adds the dedicated
-    validation path and tests for this.
+    Raises ValueError on unknown symbol — defense-in-depth check that fires
+    even if validate_entry() is bypassed.
     """
     if op_symbol not in OPS_MAPPING:
         raise ValueError(
@@ -50,6 +61,58 @@ def _map_operator(op_symbol: str) -> str:
             f"Supported: {sorted(OPS_MAPPING.keys())}"
         )
     return OPS_MAPPING[op_symbol]
+
+
+def _get_nested(entry: dict, dotted_path: str):
+    """Walk a nested dict using a dotted path string.
+
+    Returns the value if found, or None if any level is missing or not a dict.
+    Example: _get_nested(entry, "alert.options.op")
+    """
+    parts = dotted_path.split(".")
+    node = entry
+    for part in parts:
+        if not isinstance(node, dict):
+            return None
+        node = node.get(part)
+        if node is None:
+            return None
+    return node
+
+
+def validate_entry(entry: dict) -> None:
+    """Validate a single alertable JSON entry against the required schema.
+
+    Raises ValueError with the entry name and the offending field/value so
+    callers get an actionable message rather than a KeyError or AttributeError.
+
+    Returns None on success. Callers should invoke this before _build_alert_resource().
+    """
+    entry_name = entry.get("name", "<unnamed>")
+
+    # Check all required dotted-path fields are present.
+    for path in REQUIRED_ALERT_FIELDS:
+        if _get_nested(entry, path) is None:
+            raise ValueError(
+                f"Entry {entry_name!r}: missing required field {path!r}"
+            )
+
+    # Check operator is recognised.
+    op = entry["alert"]["options"]["op"]
+    if op not in OPS_MAPPING:
+        raise ValueError(
+            f"Entry {entry_name!r}: unknown operator {op!r}. "
+            f"Supported: {sorted(OPS_MAPPING.keys())}"
+        )
+
+    # Check rearm is a numeric string.
+    rearm = entry["alert"]["rearm"]
+    try:
+        int(rearm)
+    except (ValueError, TypeError):
+        raise ValueError(
+            f"Entry {entry_name!r}: alert.rearm must be a numeric string, got {rearm!r}"
+        )
 
 
 def _build_alert_resource(entry: dict) -> dict:
@@ -93,13 +156,19 @@ def _build_alert_resource(entry: dict) -> dict:
     }
 
 
-def generate() -> dict:
-    """Read JSON config, filter, map — return the resources dict.
+def generate(config_path: Path = None) -> dict:
+    """Read JSON config, validate, filter, map — return the resources dict.
+
+    config_path defaults to JSON_CONFIG (the real data file). Tests pass a
+    fixture path to keep tests hermetic.
 
     Separated from the file-writing main() so tests can assert on the dict
     directly without touching disk.
     """
-    with open(JSON_CONFIG) as f:
+    if config_path is None:
+        config_path = JSON_CONFIG
+
+    with open(config_path) as f:
         config = json.load(f)
 
     alerts_out = {}
@@ -107,6 +176,10 @@ def generate() -> dict:
         # GEN-03: query-only entries (no `alert` sub-object) are skipped silently.
         if not entry.get("alert"):
             continue
+
+        # GEN-04 / GEN-06: validate before building — raises ValueError with
+        # entry name + field path on any schema violation.
+        validate_entry(entry)
 
         # Resource key = JSON entry name. Stable keys prevent orphan alerts on
         # rename (PITFALLS.md Pitfall 10).
