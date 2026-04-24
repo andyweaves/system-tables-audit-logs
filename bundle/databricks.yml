@@ -18,12 +18,9 @@ variables:
     description: "Java timezone ID for alert schedule"
     default: "UTC"
 
-workspace:
-  host: ${var.host}
-
 experimental:
   scripts:
-    preinit: python3 bundle/src/generate_alerts.py
+    preinit: python3 src/generate_alerts.py
 
 targets:
   dev:
