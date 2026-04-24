@@ -161,3 +161,11 @@ cython_debug/
 
 # GSD planning artifacts (kept local; commit_docs=false)
 .planning/
+
+# DAB real-instance file (workspace host, emails, warehouse ID) — never commit
+bundle/databricks.dev.yml
+bundle/databricks.local.yml
+
+# DAB generator output — regenerated on every deploy, not source
+bundle/generated/*.yml
+!bundle/generated/.gitkeep
