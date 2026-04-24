@@ -63,16 +63,20 @@ def test_unknown_operator_in_full_config_raises():
 
 
 # ---------------------------------------------------------------------------
-# Test 3: rearm int cast — happy path and bad path
+# Test 3: retrigger_seconds driven by bundle variable; validate_entry still
+# enforces JSON `rearm` is numeric (shared schema with notebook/TF paths)
 # ---------------------------------------------------------------------------
 
-def test_rearm_is_cast_to_int():
+def test_retrigger_seconds_references_bundle_variable():
+    """Generator emits ${var.retrigger_seconds} — NOT the JSON rearm field.
+
+    Default is 0 (notify once); users override via variable-overrides.json.
+    The JSON rearm stays untouched for the notebook and Terraform paths.
+    """
     resources = generate(config_path=FIXTURES / "valid_entry.json")
-    # Resource key is the JSON entry 'name' field ("fixture_valid"), not the alert name.
     alert = resources["resources"]["alerts"]["fixture_valid"]
     retrig = alert["evaluation"]["notification"]["retrigger_seconds"]
-    assert isinstance(retrig, int)
-    assert retrig == 3600
+    assert retrig == "${var.retrigger_seconds}"
 
 
 def test_rearm_non_numeric_raises_valueerror():

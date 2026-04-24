@@ -24,6 +24,9 @@ variables:
   alert_timezone:
     description: "Java timezone ID for alert schedule"
     default: "UTC"
+  retrigger_seconds:
+    description: "Seconds to wait after an alert triggers before re-sending notification. 0 = notify once (default); set to 3600 for hourly re-notification while the condition persists."
+    default: 0
 
 experimental:
   scripts:

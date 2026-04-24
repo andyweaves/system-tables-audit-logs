@@ -161,8 +161,12 @@ def _build_alert_resource(entry: dict) -> dict:
             # every normal empty window as a broken alert in the UI.
             "empty_result_state": "OK",
             "notification": {
-                # Cast string rearm ("3600") to int — GEN-07.
-                "retrigger_seconds": int(alert["rearm"]),
+                # Driven by the bundle variable, not JSON `rearm`. Default is
+                # 0 (notify once). Users who want hourly re-notification can
+                # set retrigger_seconds=3600 in variable-overrides.json — no
+                # need to touch the legacy JSON `rearm` field, which stays as
+                # it is for the notebook + Terraform paths.
+                "retrigger_seconds": "${var.retrigger_seconds}",
                 # MAP-05: always emit subscriptions, even if the list looks
                 # "obvious". Silent omission is Pitfall 8.
                 "subscriptions": [
