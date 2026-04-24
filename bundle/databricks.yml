@@ -1,5 +1,13 @@
 bundle:
   name: system-tables-audit-logs
+  deployment:
+    # Direct engine deploys via the Databricks REST API instead of running
+    # a bundled Terraform. Avoids the CLI's Terraform download step, which
+    # has hit PGP signature / chmod failures on recent CLI versions. Direct
+    # is marked experimental upstream but is the simpler path for pure
+    # Alerts v2 bundles like this one. Override with
+    # DATABRICKS_BUNDLE_ENGINE=terraform if you need the Terraform engine.
+    engine: direct
 
 include:
   - generated/*.yml

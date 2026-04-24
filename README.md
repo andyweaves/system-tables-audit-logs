@@ -37,6 +37,8 @@ The DAB path deploys Alerts v2 (the new SQL Alerts resource) directly from `reso
 - At least one email address for alert notifications
 - Optional: `databricks-sdk >= 0.51.0` (only needed if you want to write your own Python-based smoke tests; NOT required for the generator itself)
 
+**Deployment engine:** this bundle pins `bundle.deployment.engine: direct` in `databricks.yml`, which deploys via the Databricks REST API instead of running a bundled Terraform. This avoids the CLI's Terraform download step, which has recently hit PGP signature failures. `direct` is marked experimental upstream but is the simpler path for pure Alerts v2 bundles. To force the Terraform engine instead, set `DATABRICKS_BUNDLE_ENGINE=terraform` or edit `bundle.deployment.engine` — see Troubleshooting for the Terraform workarounds.
+
 #### Parity table: DAB vs Terraform vs Notebook
 
 | Capability                                    | DAB                                            | Terraform                                   | Notebook                                         |
@@ -168,14 +170,14 @@ You skipped step 4 of the copy-and-fill workflow. Create `.databricks/bundle/dev
 **`Source IP address: X.X.X.X is blocked`**
 Your workspace has an IP Access List that does not include your current source IP. Either run from an IP in the allow list, or use the UI-delete fallback (see "Updating alerts" Option C) for cleanup operations.
 
-**Provider signature / PGP key errors during `bundle deploy`**
-The Databricks Terraform provider's PGP signing key expired in April 2026. If you see a provider-verification error, try using a local Terraform binary:
+**`error downloading Terraform: chmod ... no such file or directory`**
+This only occurs if you override the bundle to use the Terraform engine (`DATABRICKS_BUNDLE_ENGINE=terraform` or `bundle.deployment.engine: terraform`). The repo pins `engine: direct` in `bundle/databricks.yml` specifically because the CLI's bundled Terraform download has been failing signature/chmod checks. If you hit this error, either (a) leave the default `direct` engine in place, or (b) use a locally-installed Terraform:
 ```bash
 export DATABRICKS_TF_EXEC_PATH=$(which terraform)   # e.g. /opt/homebrew/bin/terraform on macOS, /usr/local/bin/terraform on Linux
 export DATABRICKS_TF_VERSION=1.13.3
 databricks bundle deploy --target dev -p <your-profile>
 ```
-Make sure `terraform` is installed: `brew install terraform` on macOS, or see https://developer.hashicorp.com/terraform/install. This workaround bypasses the bundled provider download; once the upstream PGP key is refreshed, you can unset these env vars.
+Install Terraform with `brew install terraform` on macOS, or see https://developer.hashicorp.com/terraform/install.
 
 **`INVALID_PARAMETER_VALUE` on alert evaluation**
 If you added a new alert and see this, check that `alert.options.value` in your JSON is numeric (e.g. `"5"`, not `"five"`). The generator emits `threshold.value.double_value` for numeric thresholds; non-numeric values fall back to `string_value`, which Alerts v2 rejects when the source column is numeric.
