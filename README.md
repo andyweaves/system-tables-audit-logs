@@ -37,7 +37,7 @@ The DAB path deploys Alerts v2 (the new SQL Alerts resource) directly from `reso
 - At least one email address for alert notifications
 - Optional: `databricks-sdk >= 0.51.0` (only needed if you want to write your own Python-based smoke tests; NOT required for the generator itself)
 
-**Deployment engine:** this bundle pins `bundle.deployment.engine: direct` in `databricks.yml`, which deploys via the Databricks REST API instead of running a bundled Terraform. This avoids the CLI's Terraform download step, which has recently hit PGP signature failures. `direct` is marked experimental upstream but is the simpler path for pure Alerts v2 bundles. To force the Terraform engine instead, set `DATABRICKS_BUNDLE_ENGINE=terraform` or edit `bundle.deployment.engine` — see Troubleshooting for the Terraform workarounds.
+**Deployment engine:** this bundle pins `bundle.engine: direct` in `databricks.yml`, which deploys via the Databricks REST API instead of running a bundled Terraform. This avoids the CLI's Terraform download step, which has recently hit PGP signature failures. `direct` is marked experimental upstream but is the simpler path for pure Alerts v2 bundles. To force the Terraform engine instead, set `DATABRICKS_BUNDLE_ENGINE=terraform` or edit `bundle.engine` — see Troubleshooting for the Terraform workarounds.
 
 #### Parity table: DAB vs Terraform vs Notebook
 
@@ -171,7 +171,7 @@ You skipped step 4 of the copy-and-fill workflow. Create `.databricks/bundle/dev
 Your workspace has an IP Access List that does not include your current source IP. Either run from an IP in the allow list, or use the UI-delete fallback (see "Updating alerts" Option C) for cleanup operations.
 
 **`error downloading Terraform: chmod ... no such file or directory`**
-This only occurs if you override the bundle to use the Terraform engine (`DATABRICKS_BUNDLE_ENGINE=terraform` or `bundle.deployment.engine: terraform`). The repo pins `engine: direct` in `bundle/databricks.yml` specifically because the CLI's bundled Terraform download has been failing signature/chmod checks. If you hit this error, either (a) leave the default `direct` engine in place, or (b) use a locally-installed Terraform:
+This only occurs if you override the bundle to use the Terraform engine (`DATABRICKS_BUNDLE_ENGINE=terraform` or `bundle.engine: terraform`). The repo pins `engine: direct` in `bundle/databricks.yml` specifically because the CLI's bundled Terraform download has been failing signature/chmod checks. If you hit this error, either (a) leave the default `direct` engine in place, or (b) use a locally-installed Terraform:
 ```bash
 export DATABRICKS_TF_EXEC_PATH=$(which terraform)   # e.g. /opt/homebrew/bin/terraform on macOS, /usr/local/bin/terraform on Linux
 export DATABRICKS_TF_VERSION=1.13.3
