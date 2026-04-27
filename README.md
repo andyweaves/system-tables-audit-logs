@@ -6,27 +6,27 @@ Automatic creation of important SQL Queries &amp; Alerts for Databricks System T
 * [AWS Docs](https://docs.databricks.com/administration-guide/system-tables/audit-logs.html)
 * [Azure Docs](https://learn.microsoft.com/en-gb/azure/databricks/administration-guide/system-tables/audit-logs)
 
-## Setup 
+## Setup
 
-### Using notebook
+This repo offers three deployment paths. **Databricks Asset Bundles (DAB) is the recommended path** — it's the modern, supported way to deploy Databricks resources as code, deploys Alerts v2 directly (no companion Job, no separate Query resource), gives you `validate` / `deploy` / `destroy` lifecycle commands out of the box, and supports dev/prod targets without workspace duplication. The Terraform and notebook paths are kept for backward compatibility and for users already standardized on those tools.
 
-1. Clone this Github Repo using Databricks Repos (see the docs for [AWS](https://docs.databricks.com/repos/index.html) and [Azure](https://docs.microsoft.com/en-us/azure/databricks/repos/))
-2. Run the [create_queries_and_alerts](notebooks/create_queries_and_alerts.py) notebook
-3. The notebook will create SQL queries and alerts based on the config file [queries_and_alerts.json](resources/queries_and_alerts.json)
-4. Once the notebook has been run you should see an HTML table with links to all of the queries and alerts:
+| Path | Status | One-liner |
+|------|--------|-----------|
+| **[DAB](#using-databricks-asset-bundles-dab-recommended)** | ⭐ **Recommended** | `databricks bundle deploy --target dev` — Alerts v2 from JSON, native scheduling, dev/prod targets |
+| [Terraform](#using-terraform) | Maintained | `terraform apply` — Alerts v1 + companion Job, full state tracking |
+| [Notebook](#using-notebook) | Legacy | Manual notebook run — Alerts v1, no scheduling, ad-hoc cleanup |
 
-![image](https://github.com/andyweaves/system-tables-audit-logs/assets/43955924/59c08671-c060-40d7-8803-5455734ef1bb)
+### Using Databricks Asset Bundles (DAB) — Recommended
 
-5. To add new SQL queries and alerts, you just add them to the config file [queries_and_alerts.json](resources/queries_and_alerts.json)
-6. If you want to cleanup the queries and alerts that have been created, just update the last cell in [create_queries_and_alerts](notebooks/create_queries_and_alerts.py) so that `clean_up = True`
+The DAB path deploys [Alerts v2](https://docs.databricks.com/sql/user/alerts/index.html) directly from `resources/queries_and_alerts.json` via a single `databricks bundle deploy`. It is the most aligned with current Databricks best practices for managing SQL alerts as code:
 
-### Using Terraform
+- **Alerts v2 native** — uses inline SQL (no separate Query resource) and native Alert scheduling (no separate Job resource). Half the resources to manage compared to the Terraform path.
+- **Single command lifecycle** — `bundle validate` (dry run), `bundle deploy` (provision), `bundle destroy` (tear down). No `clean_up = True` notebook flag, no `terraform plan && terraform apply` two-step.
+- **Dev/prod targets built in** — `--target dev` deploys with a `[dev <user>]` prefix so dev and prod alerts coexist in the same workspace without name collisions. No need for separate workspaces or hand-rolled name prefixing.
+- **CI-friendly** — runs from any laptop or CI runner that has the Databricks CLI; doesn't require a Databricks notebook environment or a Terraform installation (the bundle pins `engine: direct`, see Prerequisites below).
+- **Schema-aware** — the generator validates each JSON entry before deploy, raises clear errors on unknown operators / missing fields, and avoids the `<=` → `LESS_THAN` bug present in `notebooks/functions.py:74`.
 
-Alternatively you can setup everything by following instructions in the [terraform](terraform) folder.  Terraform code is also using data from the config file [queries_and_alerts.json](resources/queries_and_alerts.json) to create all objects.
-
-### Using Databricks Asset Bundles (DAB)
-
-The DAB path deploys Alerts v2 (the new SQL Alerts resource) directly from `resources/queries_and_alerts.json` via `databricks bundle deploy`. Unlike the notebook and Terraform paths, it uses inline SQL (no separate Query resources) and native Alert scheduling (no separate Job resource). It is additive — the notebook and Terraform paths are unchanged.
+The DAB path is **additive** — the notebook and Terraform paths still work, and all three read the same `resources/queries_and_alerts.json` source of truth.
 
 #### Prerequisites
 
@@ -61,7 +61,7 @@ Before `bundle validate` or `bundle deploy` runs, a preinit script (`bundle/src/
 
 - Silently skips entries without an `alert` sub-object (query-only catalog items — 15 of the 45 entries are query-only and are intentionally skipped)
 - Maps the 6 JSON comparison operators (`>`, `>=`, `<`, `<=`, `==`, `!=`) to the correct Alerts v2 enum values (operator map sourced from `terraform/sql.tf`, not the buggy `notebooks/functions.py:74`)
-- Casts `alert.rearm` from string to int for `retrigger_seconds`
+- Drives `retrigger_seconds` from the `retrigger_seconds` bundle variable (default `0` = notify once on initial trigger). Override to `3600` in `variable-overrides.json` for hourly re-notification while the condition persists. The legacy JSON `alert.rearm` field is left untouched so the notebook + Terraform paths continue to read it.
 - Emits `threshold.value.double_value` for numeric thresholds (Alerts v2 rejects `string_value` on numeric columns — avoids `INVALID_PARAMETER_VALUE`)
 - Sets `empty_result_state: OK` on every alert (the default `ERROR` causes false evaluation failures when your audit query returns zero rows in the healthy state)
 - Emits an `evaluation.notification.subscriptions` block for every alert — alerts can never silently deploy without notifications
@@ -184,6 +184,26 @@ If you added a new alert and see this, check that `alert.options.value` in your 
 
 **Alert evaluation marked `ERROR` when the query returns zero rows**
 This should not happen — the generator sets `empty_result_state: OK` on every alert. If you see this, make sure you ran `bundle deploy` (not just copied old YAML). Zero-row results are the healthy state for most audit alerts; `OK` (not `ERROR`) is the correct evaluation.
+
+### Alternative: Using Terraform
+
+Maintained for users already standardized on Terraform. Provisions Alerts v1 plus a companion Job resource (Alerts v1 has no native scheduling, so the Job runs the alert checks on a 1-hour cron). Full Terraform state tracking — `terraform destroy` cleanly tears down everything it created.
+
+Follow the instructions in the [terraform](terraform) folder. The Terraform code reads the same [queries_and_alerts.json](resources/queries_and_alerts.json) config the DAB and notebook paths use.
+
+### Alternative: Using a notebook
+
+Legacy path, kept for backward compatibility and ad-hoc/interactive deploys. Creates Alerts v1 via the Databricks SDK from inside a notebook running in the workspace. **Note:** the notebook's operator map at `notebooks/functions.py:74` has a known bug — `<=` is mapped to `LESS_THAN` instead of `LESS_THAN_OR_EQUAL`. The DAB path sources its operator map from `terraform/sql.tf` to avoid this.
+
+1. Clone this Github Repo using Databricks Repos (see the docs for [AWS](https://docs.databricks.com/repos/index.html) and [Azure](https://docs.microsoft.com/en-us/azure/databricks/repos/))
+2. Run the [create_queries_and_alerts](notebooks/create_queries_and_alerts.py) notebook
+3. The notebook will create SQL queries and alerts based on the config file [queries_and_alerts.json](resources/queries_and_alerts.json)
+4. Once the notebook has been run you should see an HTML table with links to all of the queries and alerts:
+
+![image](https://github.com/andyweaves/system-tables-audit-logs/assets/43955924/59c08671-c060-40d7-8803-5455734ef1bb)
+
+5. To add new SQL queries and alerts, you just add them to the config file [queries_and_alerts.json](resources/queries_and_alerts.json)
+6. If you want to cleanup the queries and alerts that have been created, just update the last cell in [create_queries_and_alerts](notebooks/create_queries_and_alerts.py) so that `clean_up = True`
 
 ## Queries and Alerts
 
