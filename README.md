@@ -31,7 +31,7 @@ The DAB path is **additive** — the notebook and Terraform paths still work, an
 #### Prerequisites
 
 - Databricks CLI >= 0.288.0 (run `databricks --version` to check; install from https://docs.databricks.com/dev-tools/cli/install.html)
-- Python >= 3.10 with `pyyaml>=6.0` (the generator's only runtime dependency — `pip install -r requirements.txt`)
+- Python >= 3.10 with `pyyaml>=6.0,<7.0` (the generator's only runtime dependency — `pip install -r bundle/requirements.txt`)
 - An authenticated CLI profile (see `databricks auth login` or `~/.databrickscfg`)
 - A SQL Warehouse in the target workspace (you'll need its ID)
 - At least one email address for alert notifications
