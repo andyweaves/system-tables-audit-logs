@@ -33,7 +33,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 
 @pytest.mark.parametrize(
-    "symbol,expected",
+    ("symbol", "expected"),
     [
         (">", "GREATER_THAN"),
         (">=", "GREATER_THAN_OR_EQUAL"),
@@ -109,8 +109,8 @@ def test_rearm_non_numeric_raises_valueerror():
 def test_query_only_entries_silently_skipped():
     resources = generate(config_path=FIXTURES / "query_only_entry.json")
     alerts = resources["resources"]["alerts"]
-    # fixture has one alertable (key="fixture_valid") + one query-only (key="fixture_query_only")
-    # Resource key is the JSON entry 'name' field, not the alert display_name.
+    # Fixture: one alertable (key="fixture_valid") + one query-only
+    # (key="fixture_query_only"). Resource keys = JSON entry `name` field.
     assert len(alerts) == 1
     assert "fixture_valid" in alerts
     # query-only entry must NOT appear
@@ -123,7 +123,7 @@ def test_query_only_entries_silently_skipped():
 
 
 def test_missing_required_field_raises():
-    with pytest.raises(ValueError, match="alert.options.op"):
+    with pytest.raises(ValueError, match=r"alert\.options\.op"):
         generate(config_path=FIXTURES / "missing_required_field.json")
 
 
@@ -192,10 +192,12 @@ def test_notification_subscriptions_always_emitted():
     resources = generate(config_path=FIXTURES / "valid_entry.json")
     for alert_key, alert in resources["resources"]["alerts"].items():
         subs = alert["evaluation"]["notification"]["subscriptions"]
-        assert isinstance(subs, list) and len(subs) >= 1, (
+        msg = (
             f"Alert {alert_key!r} has empty/missing subscriptions — would "
             f"deploy and fire silently with no email notification"
         )
+        assert isinstance(subs, list), msg
+        assert len(subs) >= 1, msg
 
 
 # ---------------------------------------------------------------------------
@@ -333,4 +335,5 @@ def test_real_config_every_alert_has_subscriptions_and_ok_empty_state():
         evaluation = alert["evaluation"]
         assert evaluation["empty_result_state"] == "OK", alert_key
         subs = evaluation["notification"]["subscriptions"]
-        assert isinstance(subs, list) and len(subs) >= 1, alert_key
+        assert isinstance(subs, list), alert_key
+        assert len(subs) >= 1, alert_key

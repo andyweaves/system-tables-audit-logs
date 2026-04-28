@@ -27,14 +27,14 @@ JSON_CONFIG = REPO_ROOT / "resources" / "queries_and_alerts.json"
 OUTPUT_DIR = REPO_ROOT / "bundle" / "generated"
 OUTPUT_FILE = OUTPUT_DIR / "alerts.yml"
 
-# Sourced from terraform/sql.tf lines 4-11 (verified correct against CLI 0.288.0
-# bundle schema). Do NOT copy from notebooks/functions.py:74 — it maps `<=` to
-# LESS_THAN instead of LESS_THAN_OR_EQUAL.
+# Sourced from terraform/sql.tf (verified against CLI 0.288.0 bundle schema).
+# Regression guard on `<=`: notebooks/functions.py:74 maps it to LESS_THAN
+# (a bug); we map to LESS_THAN_OR_EQUAL (correct).
 OPS_MAPPING = {
     ">": "GREATER_THAN",
     ">=": "GREATER_THAN_OR_EQUAL",
     "<": "LESS_THAN",
-    "<=": "LESS_THAN_OR_EQUAL",  # regression guard: notebooks/functions.py:74 maps this to LESS_THAN (bug)
+    "<=": "LESS_THAN_OR_EQUAL",
     "==": "EQUAL",
     "!=": "NOT_EQUAL",
 }
@@ -128,10 +128,10 @@ def validate_entry(entry: dict) -> None:
     rearm = entry["alert"]["rearm"]
     try:
         int(rearm)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError) as exc:
         raise ValueError(
             f"Entry {entry_name!r}: alert.rearm must be a numeric string, got {rearm!r}"
-        )
+        ) from exc
 
 
 def _build_alert_resource(entry: dict) -> dict:
@@ -186,7 +186,7 @@ def _build_alert_resource(entry: dict) -> dict:
     }
 
 
-def generate(config_path: Path = None) -> dict:
+def generate(config_path: Path | None = None) -> dict:
     """Read JSON config, validate, filter, map — return the resources dict.
 
     config_path defaults to JSON_CONFIG (the real data file). Tests pass a
@@ -202,10 +202,12 @@ def generate(config_path: Path = None) -> dict:
         config = json.load(f)
 
     if not isinstance(config, dict) or "queries_and_alerts" not in config:
+        actual = (
+            sorted(config.keys()) if isinstance(config, dict) else type(config).__name__
+        )
         raise ValueError(
             f"{config_path}: malformed config — expected an object with a "
-            f"top-level 'queries_and_alerts' key. Got keys: "
-            f"{sorted(config.keys()) if isinstance(config, dict) else type(config).__name__}"
+            f"top-level 'queries_and_alerts' key. Got: {actual}"
         )
 
     alerts_out = {}
