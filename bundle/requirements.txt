@@ -1,0 +1,12 @@
+# DAB-path runtime dependencies for the preinit generator
+# (bundle/src/generate_alerts.py).
+#
+# Install before running `databricks bundle validate` or `bundle deploy`:
+#   pip install -r bundle/requirements.txt
+#
+# The notebook path has its own dependencies in ../requirements.txt.
+# The Terraform path has no Python dependencies.
+
+# Compatible release: PyYAML 6.x has been stable since 2021; <7.0 prevents
+# surprise breakage from a future major.
+pyyaml>=6.0,<7.0

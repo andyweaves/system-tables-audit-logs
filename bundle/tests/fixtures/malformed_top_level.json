@@ -1,0 +1,8 @@
+{
+  "wrong_top_key": [
+    {
+      "name": "fixture_wrong_shape",
+      "query": "SELECT 1"
+    }
+  ]
+}

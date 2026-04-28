@@ -1,0 +1,33 @@
+# Project tooling config. Currently scoped to the DAB bundle path
+# (bundle/src/, bundle/tests/). The notebook (notebooks/) and Terraform
+# (terraform/) paths predate this config and are excluded.
+#
+# Run from repo root:
+#   ruff check                  # lint
+#   ruff format --check         # check formatting (no changes)
+#   ruff format                 # apply formatting
+#   pytest bundle/tests/        # run tests
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+extend-exclude = [
+    "notebooks",
+    "terraform",
+    "bundle/generated",
+    ".databricks",
+]
+
+[tool.ruff.lint]
+# Default E + F rules, plus rule sets that catch real bugs and design smells:
+#   B   = flake8-bugbear (likely bugs)
+#   I   = isort (import ordering)
+#   UP  = pyupgrade (modernize syntax)
+#   SIM = simplify (code simplification)
+#   C4  = comprehensions
+#   PIE = misc Pythonic rules
+#   PT  = pytest style
+#   N   = pep8-naming
+#   RUF = ruff-specific rules
+#   W   = pycodestyle warnings
+select = ["E", "W", "F", "B", "I", "UP", "SIM", "C4", "PIE", "PT", "N", "RUF"]

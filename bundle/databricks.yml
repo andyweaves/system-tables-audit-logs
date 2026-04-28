@@ -1,0 +1,49 @@
+bundle:
+  name: system-tables-audit-logs
+  # Keep behavior consistent across fresh clones. This bundle relies on
+  # `engine: direct` and was validated against Databricks CLI 0.288.0+.
+  databricks_cli_version: ">=0.288.0"
+  # Direct engine deploys via the Databricks REST API instead of running a
+  # bundled Terraform. Avoids the CLI's Terraform download step, which has
+  # hit PGP signature / chmod failures on recent CLI versions. Direct is
+  # marked experimental upstream but is the simpler path for pure Alerts v2
+  # bundles like this one. Override with DATABRICKS_BUNDLE_ENGINE=terraform
+  # if you need the Terraform engine.
+  engine: direct
+
+include:
+  - generated/*.yml
+
+variables:
+  host:
+    description: "Databricks workspace URL (e.g. https://adb-xxx.azuredatabricks.net). Set in .databricks/bundle/<target>/variable-overrides.json (auto-gitignored by DAB). See README.md > Using Databricks Asset Bundles > Copy-and-fill workflow."
+  warehouse_id:
+    description: "SQL Warehouse ID to run alerts on. Set in .databricks/bundle/<target>/variable-overrides.json (auto-gitignored by DAB)."
+  alert_emails:
+    description: "Email address for alert notifications. (Roadmap: support multiple emails via a comma-separated list - not implemented at time of writing.) Set in .databricks/bundle/<target>/variable-overrides.json (auto-gitignored by DAB)."
+  alert_schedule:
+    description: "Quartz cron schedule (6-field format) for alert evaluation"
+    default: "1 1 * * * ?"
+  alert_timezone:
+    description: "Java timezone ID for alert schedule"
+    default: "UTC"
+  retrigger_seconds:
+    description: "Seconds to wait after an alert triggers before re-sending notification. 0 = notify once (default); set to 3600 for hourly re-notification while the condition persists."
+    default: 0
+
+experimental:
+  scripts:
+    # `python3` works out of the box on macOS (Homebrew), most Linux distros,
+    # and Databricks runtime images. On Windows, change this to `python` or
+    # `py` — see README > Troubleshooting > "'python3' is not recognized".
+    # We can't pick one command that works on all three OSes without a shim,
+    # so default to the platform where most Databricks dev happens and
+    # document the one-line override for Windows users.
+    preinit: python3 src/generate_alerts.py
+
+targets:
+  dev:
+    mode: development
+    default: true
+  prod:
+    mode: production
