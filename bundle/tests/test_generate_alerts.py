@@ -1,8 +1,10 @@
 """Tests for bundle/src/generate_alerts.py.
 
-Covers GEN-08 checklist: operator mapping (all 6), rearm int cast,
-query-only skip, unknown-operator error, missing-required-field error,
-muted -> pause_status, and notification subscriptions always emitted.
+Covers: operator mapping (all 6), retrigger_seconds bundle-variable
+reference, query-only skip, unknown-operator error, missing-required-field
+error, muted -> pause_status, notification subscriptions always emitted,
+Alerts v2 schema correctness (double_value thresholds, empty_result_state),
+malformed config rejection, and a real-config smoke test.
 
 Run from repo root:
     python3 -m pytest bundle/tests/ -v
@@ -215,3 +217,97 @@ def test_required_alert_fields_includes_all_seven():
         "alert.options.op", "alert.options.column", "alert.options.value",
     }
     assert expected_paths == set(REQUIRED_ALERT_FIELDS)
+
+
+# ---------------------------------------------------------------------------
+# Test 8: Alerts v2 schema correctness — regression guards for the two
+# schema bugs surfaced and fixed during Phase 1 end-to-end deploy validation
+# ---------------------------------------------------------------------------
+
+def test_threshold_numeric_string_emits_double_value():
+    """Alerts v2 rejects string_value thresholds when the source column is
+    numeric (e.g. COUNT aggregates). All thresholds in the real config are
+    numeric counts/sums stored as JSON strings. Generator must wrap them as
+    double_value, not string_value. Regression guard for commit 9f2938d."""
+    resources = generate(config_path=FIXTURES / "valid_entry.json")
+    threshold = resources["resources"]["alerts"]["fixture_valid"]["evaluation"]["threshold"]
+    assert threshold["value"] == {"double_value": 0.0}
+
+
+def test_threshold_value_helper_packs_typed_wrappers():
+    """Direct unit coverage of _threshold_value() — bool, int/float, numeric
+    string, and non-numeric string fallback paths."""
+    from bundle.src.generate_alerts import _threshold_value
+
+    assert _threshold_value(True) == {"bool_value": True}
+    assert _threshold_value(False) == {"bool_value": False}
+    assert _threshold_value(5) == {"double_value": 5.0}
+    assert _threshold_value(3.14) == {"double_value": 3.14}
+    assert _threshold_value("42") == {"double_value": 42.0}
+    assert _threshold_value("not-numeric") == {"string_value": "not-numeric"}
+
+
+def test_empty_result_state_is_ok_for_every_alert():
+    """Alerts v2 defaults empty_result_state to ERROR. Most audit alerts
+    return zero rows in the healthy state, so the default surfaces every
+    healthy window as a broken alert. Generator must explicitly set OK on
+    every alert. Regression guard for commit cee90db."""
+    resources = generate(config_path=FIXTURES / "valid_entry.json")
+    for alert_key, alert in resources["resources"]["alerts"].items():
+        assert alert["evaluation"]["empty_result_state"] == "OK", (
+            f"Alert {alert_key!r} missing or wrong empty_result_state — "
+            f"would surface healthy zero-row results as evaluation errors"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Test 9: Malformed top-level config produces an actionable ValueError,
+# not a bare KeyError or AttributeError
+# ---------------------------------------------------------------------------
+
+def test_malformed_top_level_raises_clean_valueerror():
+    """If someone hand-edits the JSON and breaks the top-level shape, the
+    generator should fail with an actionable error message naming the
+    expected key — not a Python traceback that leaves users guessing."""
+    with pytest.raises(ValueError, match="queries_and_alerts"):
+        generate(config_path=FIXTURES / "malformed_top_level.json")
+
+
+def test_malformed_top_level_message_lists_actual_keys():
+    """Error message should help the user see what they DO have so they
+    can correct it."""
+    with pytest.raises(ValueError, match="wrong_top_key"):
+        generate(config_path=FIXTURES / "malformed_top_level.json")
+
+
+# ---------------------------------------------------------------------------
+# Test 10: Smoke test against the real shipped config — catches JSON drift
+# (typos, removed fields, new operators we forgot to map) without requiring
+# a workspace deploy
+# ---------------------------------------------------------------------------
+
+def test_real_config_generates_without_errors():
+    """The committed resources/queries_and_alerts.json must always pass
+    through the full generate() pipeline cleanly. If a contributor adds an
+    alert with a typo or unknown operator, this test fails fast at PR time
+    instead of at deploy time."""
+    resources = generate()  # default path = real shipped config
+    alerts = resources["resources"]["alerts"]
+    # Pin a lower bound — current count is 30; alerts can be added but not
+    # silently dropped en masse (which would mean a JSON-shape regression).
+    assert len(alerts) >= 30, (
+        f"Real config generated only {len(alerts)} alerts; expected >= 30. "
+        f"Has the JSON shape changed, or have alertable entries been removed?"
+    )
+
+
+def test_real_config_every_alert_has_subscriptions_and_ok_empty_state():
+    """Combined Pitfall-8 + empty_result_state regression check against the
+    real shipped config. If either ever regresses, every alert in production
+    breaks — this catches it before deploy."""
+    resources = generate()
+    for alert_key, alert in resources["resources"]["alerts"].items():
+        evaluation = alert["evaluation"]
+        assert evaluation["empty_result_state"] == "OK", alert_key
+        subs = evaluation["notification"]["subscriptions"]
+        assert isinstance(subs, list) and len(subs) >= 1, alert_key
