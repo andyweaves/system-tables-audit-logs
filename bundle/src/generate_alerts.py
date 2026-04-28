@@ -199,6 +199,13 @@ def generate(config_path: Path = None) -> dict:
     with open(config_path) as f:
         config = json.load(f)
 
+    if not isinstance(config, dict) or "queries_and_alerts" not in config:
+        raise ValueError(
+            f"{config_path}: malformed config — expected an object with a "
+            f"top-level 'queries_and_alerts' key. Got keys: "
+            f"{sorted(config.keys()) if isinstance(config, dict) else type(config).__name__}"
+        )
+
     alerts_out = {}
     for entry in config["queries_and_alerts"]:
         # GEN-03: query-only entries (no `alert` sub-object) are skipped silently.

@@ -1,5 +1,8 @@
 bundle:
   name: system-tables-audit-logs
+  # Keep behavior consistent across fresh clones. This bundle relies on
+  # `engine: direct` and was validated against Databricks CLI 0.288.0+.
+  databricks_cli_version: ">=0.288.0"
   # Direct engine deploys via the Databricks REST API instead of running a
   # bundled Terraform. Avoids the CLI's Terraform download step, which has
   # hit PGP signature / chmod failures on recent CLI versions. Direct is
@@ -17,7 +20,7 @@ variables:
   warehouse_id:
     description: "SQL Warehouse ID to run alerts on. Set in .databricks/bundle/<target>/variable-overrides.json (auto-gitignored by DAB)."
   alert_emails:
-    description: "Email address (or comma-separated list) for alert notifications. Set in .databricks/bundle/<target>/variable-overrides.json (auto-gitignored by DAB)."
+    description: "Email address for alert notifications. (Roadmap: support multiple emails via a comma-separated list - not implemented at time of writing.) Set in .databricks/bundle/<target>/variable-overrides.json (auto-gitignored by DAB)."
   alert_schedule:
     description: "Quartz cron schedule (6-field format) for alert evaluation"
     default: "1 1 * * * ?"
