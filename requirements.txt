@@ -1,12 +1,1 @@
-# Notebook-path runtime dependencies.
-#
-# Used by notebooks/create_queries_and_alerts.py via:
-#   %pip install -r ../requirements.txt --upgrade
-#
-# The DAB path has its own dependencies in bundle/requirements.txt.
-# The Terraform path has no Python dependencies.
-
-# 0.51.0 is the first version with AlertsV2API; <1.0 to avoid surprise
-# breakage from a future major. Bump the upper bound when 1.x is released
-# and tested.
-databricks-sdk>=0.51.0,<1.0
+databricks-sdk
