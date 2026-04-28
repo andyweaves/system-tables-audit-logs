@@ -31,10 +31,10 @@ OUTPUT_FILE = OUTPUT_DIR / "alerts.yml"
 # bundle schema). Do NOT copy from notebooks/functions.py:74 — it maps `<=` to
 # LESS_THAN instead of LESS_THAN_OR_EQUAL.
 OPS_MAPPING = {
-    ">":  "GREATER_THAN",
+    ">": "GREATER_THAN",
     ">=": "GREATER_THAN_OR_EQUAL",
-    "<":  "LESS_THAN",
-    "<=": "LESS_THAN_OR_EQUAL",   # regression guard: notebooks/functions.py:74 maps this to LESS_THAN (bug)
+    "<": "LESS_THAN",
+    "<=": "LESS_THAN_OR_EQUAL",  # regression guard: notebooks/functions.py:74 maps this to LESS_THAN (bug)
     "==": "EQUAL",
     "!=": "NOT_EQUAL",
 }
@@ -79,8 +79,7 @@ def _map_operator(op_symbol: str) -> str:
     """
     if op_symbol not in OPS_MAPPING:
         raise ValueError(
-            f"Unknown operator {op_symbol!r}. "
-            f"Supported: {sorted(OPS_MAPPING.keys())}"
+            f"Unknown operator {op_symbol!r}. Supported: {sorted(OPS_MAPPING.keys())}"
         )
     return OPS_MAPPING[op_symbol]
 
@@ -115,9 +114,7 @@ def validate_entry(entry: dict) -> None:
     # Check all required dotted-path fields are present.
     for path in REQUIRED_ALERT_FIELDS:
         if _get_nested(entry, path) is None:
-            raise ValueError(
-                f"Entry {entry_name!r}: missing required field {path!r}"
-            )
+            raise ValueError(f"Entry {entry_name!r}: missing required field {path!r}")
 
     # Check operator is recognised.
     op = entry["alert"]["options"]["op"]

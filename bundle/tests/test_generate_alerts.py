@@ -31,15 +31,19 @@ FIXTURES = Path(__file__).parent / "fixtures"
 # Test 1: All 6 operators map to the correct Alerts v2 enum
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("symbol,expected", [
-    (">",  "GREATER_THAN"),
-    (">=", "GREATER_THAN_OR_EQUAL"),
-    ("<",  "LESS_THAN"),
-    # regression guard: notebooks/functions.py:74 maps <= to LESS_THAN (bug)
-    ("<=", "LESS_THAN_OR_EQUAL"),
-    ("==", "EQUAL"),
-    ("!=", "NOT_EQUAL"),
-])
+
+@pytest.mark.parametrize(
+    "symbol,expected",
+    [
+        (">", "GREATER_THAN"),
+        (">=", "GREATER_THAN_OR_EQUAL"),
+        ("<", "LESS_THAN"),
+        # regression guard: notebooks/functions.py:74 maps <= to LESS_THAN (bug)
+        ("<=", "LESS_THAN_OR_EQUAL"),
+        ("==", "EQUAL"),
+        ("!=", "NOT_EQUAL"),
+    ],
+)
 def test_operator_mapping_all_six(symbol, expected):
     assert _map_operator(symbol) == expected
     assert OPS_MAPPING[symbol] == expected
@@ -48,6 +52,7 @@ def test_operator_mapping_all_six(symbol, expected):
 # ---------------------------------------------------------------------------
 # Test 2: Unknown operator raises ValueError
 # ---------------------------------------------------------------------------
+
 
 def test_unknown_operator_raises_valueerror():
     with pytest.raises(ValueError, match=r"~="):
@@ -68,6 +73,7 @@ def test_unknown_operator_in_full_config_raises():
 # Test 3: retrigger_seconds driven by bundle variable; validate_entry still
 # enforces JSON `rearm` is numeric (shared schema with notebook/TF paths)
 # ---------------------------------------------------------------------------
+
 
 def test_retrigger_seconds_references_bundle_variable():
     """Generator emits ${var.retrigger_seconds} — NOT the JSON rearm field.
@@ -99,6 +105,7 @@ def test_rearm_non_numeric_raises_valueerror():
 # Test 4: Query-only entries are silently skipped (no error, no warning)
 # ---------------------------------------------------------------------------
 
+
 def test_query_only_entries_silently_skipped():
     resources = generate(config_path=FIXTURES / "query_only_entry.json")
     alerts = resources["resources"]["alerts"]
@@ -114,6 +121,7 @@ def test_query_only_entries_silently_skipped():
 # Test 5: Missing required field raises ValueError with entry name + path
 # ---------------------------------------------------------------------------
 
+
 def test_missing_required_field_raises():
     with pytest.raises(ValueError, match="alert.options.op"):
         generate(config_path=FIXTURES / "missing_required_field.json")
@@ -127,6 +135,7 @@ def test_missing_required_field_includes_entry_name():
 # ---------------------------------------------------------------------------
 # Test 6: muted -> pause_status mapping
 # ---------------------------------------------------------------------------
+
 
 def test_muted_false_produces_unpaused():
     entry = {
@@ -178,6 +187,7 @@ def test_muted_absent_produces_unpaused():
 # is for a human to notice an expected email never arrived. Make it
 # structurally impossible: assert every generated alert has subscriptions.
 
+
 def test_notification_subscriptions_always_emitted():
     resources = generate(config_path=FIXTURES / "valid_entry.json")
     for alert_key, alert in resources["resources"]["alerts"].items():
@@ -192,21 +202,19 @@ def test_notification_subscriptions_always_emitted():
 # Helper: _get_nested
 # ---------------------------------------------------------------------------
 
+
 def test_get_nested_returns_value():
     entry = {"alert": {"options": {"op": ">"}}}
-    from bundle.src.generate_alerts import _get_nested
     assert _get_nested(entry, "alert.options.op") == ">"
 
 
 def test_get_nested_returns_none_for_missing():
     entry = {"alert": {"options": {}}}
-    from bundle.src.generate_alerts import _get_nested
     assert _get_nested(entry, "alert.options.op") is None
 
 
 def test_get_nested_returns_none_for_non_dict_node():
     entry = {"alert": "not-a-dict"}
-    from bundle.src.generate_alerts import _get_nested
     assert _get_nested(entry, "alert.options.op") is None
 
 
@@ -214,12 +222,17 @@ def test_get_nested_returns_none_for_non_dict_node():
 # Helper: REQUIRED_ALERT_FIELDS completeness check
 # ---------------------------------------------------------------------------
 
+
 def test_required_alert_fields_includes_all_seven():
     # Pin the required-fields list so silent removals get caught by CI.
     expected_paths = {
-        "name", "query",
-        "alert.name", "alert.rearm",
-        "alert.options.op", "alert.options.column", "alert.options.value",
+        "name",
+        "query",
+        "alert.name",
+        "alert.rearm",
+        "alert.options.op",
+        "alert.options.column",
+        "alert.options.value",
     }
     assert expected_paths == set(REQUIRED_ALERT_FIELDS)
 
@@ -229,13 +242,16 @@ def test_required_alert_fields_includes_all_seven():
 # schema bugs surfaced and fixed during Phase 1 end-to-end deploy validation
 # ---------------------------------------------------------------------------
 
+
 def test_threshold_numeric_string_emits_double_value():
     """Alerts v2 rejects string_value thresholds when the source column is
     numeric (e.g. COUNT aggregates). All thresholds in the real config are
     numeric counts/sums stored as JSON strings. Generator must wrap them as
     double_value, not string_value. Regression guard for commit 9f2938d."""
     resources = generate(config_path=FIXTURES / "valid_entry.json")
-    threshold = resources["resources"]["alerts"]["fixture_valid"]["evaluation"]["threshold"]
+    threshold = resources["resources"]["alerts"]["fixture_valid"]["evaluation"][
+        "threshold"
+    ]
     assert threshold["value"] == {"double_value": 0.0}
 
 
@@ -270,6 +286,7 @@ def test_empty_result_state_is_ok_for_every_alert():
 # not a bare KeyError or AttributeError
 # ---------------------------------------------------------------------------
 
+
 def test_malformed_top_level_raises_clean_valueerror():
     """If someone hand-edits the JSON and breaks the top-level shape, the
     generator should fail with an actionable error message naming the
@@ -290,6 +307,7 @@ def test_malformed_top_level_message_lists_actual_keys():
 # (typos, removed fields, new operators we forgot to map) without requiring
 # a workspace deploy
 # ---------------------------------------------------------------------------
+
 
 def test_real_config_generates_without_errors():
     """The committed resources/queries_and_alerts.json must always pass
