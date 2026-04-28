@@ -5,10 +5,12 @@ This script is invoked by `experimental.scripts.preinit` in bundle/databricks.ym
 before `databricks bundle validate` or `databricks bundle deploy`.
 
 Design notes:
-- Operator map sourced from terraform/sql.tf (NOT notebooks/functions.py, which
-  has a `<=` -> LESS_THAN bug). See GEN-05 in REQUIREMENTS.md.
-- Every alert emits a notification.subscriptions block. Omitting this is the #1
-  pitfall: alerts deploy and fire but never send email.
+- Operator map sourced from terraform/sql.tf, NOT notebooks/functions.py:74,
+  which has a known bug mapping `<=` to LESS_THAN instead of LESS_THAN_OR_EQUAL.
+- Every alert emits a notification.subscriptions block unconditionally. The
+  most insidious failure mode is "alert deploys and fires but no email is
+  sent" because subscriptions were silently omitted; an unconditional emit
+  rules that out by construction.
 - Variable references (${var.*}) are emitted as literal strings. The DAB CLI
   resolves them at deploy time; this generator never sees real values.
 """
@@ -167,8 +169,11 @@ def _build_alert_resource(entry: dict) -> dict:
                 # need to touch the legacy JSON `rearm` field, which stays as
                 # it is for the notebook + Terraform paths.
                 "retrigger_seconds": "${var.retrigger_seconds}",
-                # MAP-05: always emit subscriptions, even if the list looks
-                # "obvious". Silent omission is Pitfall 8.
+                # Always emit subscriptions, unconditionally. An alert with no
+                # subscriptions deploys cleanly, transitions to TRIGGERED in
+                # the UI, and sends no email — a silent failure mode that's
+                # only caught by humans noticing the missing alert. Avoid by
+                # construction: never gate this block on any input check.
                 "subscriptions": [
                     {"user_email": "${var.alert_emails}"},
                 ],
@@ -208,16 +213,20 @@ def generate(config_path: Path = None) -> dict:
 
     alerts_out = {}
     for entry in config["queries_and_alerts"]:
-        # GEN-03: query-only entries (no `alert` sub-object) are skipped silently.
+        # Query-only entries (no `alert` sub-object) are valid in the JSON
+        # schema — they predate the alerting feature. Skip them silently.
         if not entry.get("alert"):
             continue
 
-        # GEN-04 / GEN-06: validate before building — raises ValueError with
-        # entry name + field path on any schema violation.
+        # Validate before building so callers see a clear ValueError with
+        # entry name + field path, not a downstream KeyError or AttributeError.
         validate_entry(entry)
 
-        # Resource key = JSON entry name. Stable keys prevent orphan alerts on
-        # rename (PITFALLS.md Pitfall 10).
+        # Resource key = JSON entry `name`. Renaming a JSON entry deletes the
+        # old DAB resource and creates a new one rather than updating in place.
+        # That's intentional — Alerts v2 uses display_name as identity from
+        # the user's perspective, but DAB needs a stable key, and the JSON
+        # entry name is the most stable thing we have.
         alerts_out[entry["name"]] = _build_alert_resource(entry)
 
     return {"resources": {"alerts": alerts_out}}

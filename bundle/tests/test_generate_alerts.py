@@ -171,15 +171,20 @@ def test_muted_absent_produces_unpaused():
 
 
 # ---------------------------------------------------------------------------
-# Test 7: Notification subscriptions always emitted (Pitfall 8 regression guard)
+# Test 7: Notification subscriptions always emitted — silent-omission guard
 # ---------------------------------------------------------------------------
+# An alert without a subscriptions block deploys cleanly, transitions to
+# TRIGGERED in the UI, and sends no email. The only way to catch the failure
+# is for a human to notice an expected email never arrived. Make it
+# structurally impossible: assert every generated alert has subscriptions.
 
 def test_notification_subscriptions_always_emitted():
     resources = generate(config_path=FIXTURES / "valid_entry.json")
     for alert_key, alert in resources["resources"]["alerts"].items():
         subs = alert["evaluation"]["notification"]["subscriptions"]
         assert isinstance(subs, list) and len(subs) >= 1, (
-            f"Alert {alert_key!r} has empty/missing subscriptions — Pitfall 8"
+            f"Alert {alert_key!r} has empty/missing subscriptions — would "
+            f"deploy and fire silently with no email notification"
         )
 
 
@@ -210,7 +215,7 @@ def test_get_nested_returns_none_for_non_dict_node():
 # ---------------------------------------------------------------------------
 
 def test_required_alert_fields_includes_all_seven():
-    # Ensure the constant covers all 7 required paths from the plan spec
+    # Pin the required-fields list so silent removals get caught by CI.
     expected_paths = {
         "name", "query",
         "alert.name", "alert.rearm",
