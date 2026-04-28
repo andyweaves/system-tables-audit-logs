@@ -33,6 +33,12 @@ variables:
 
 experimental:
   scripts:
+    # `python3` works out of the box on macOS (Homebrew), most Linux distros,
+    # and Databricks runtime images. On Windows, change this to `python` or
+    # `py` — see README > Troubleshooting > "'python3' is not recognized".
+    # We can't pick one command that works on all three OSes without a shim,
+    # so default to the platform where most Databricks dev happens and
+    # document the one-line override for Windows users.
     preinit: python3 src/generate_alerts.py
 
 targets:

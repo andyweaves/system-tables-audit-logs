@@ -198,7 +198,11 @@ def generate(config_path: Path | None = None) -> dict:
     if config_path is None:
         config_path = JSON_CONFIG
 
-    with open(config_path) as f:
+    # encoding="utf-8" — Windows defaults to the system locale (e.g.
+    # cp1252) and the JSON contains non-ASCII characters in some custom
+    # body templates. Explicit UTF-8 keeps the read identical across
+    # macOS, Linux, and Windows.
+    with open(config_path, encoding="utf-8") as f:
         config = json.load(f)
 
     if not isinstance(config, dict) or "queries_and_alerts" not in config:
@@ -234,7 +238,10 @@ def generate(config_path: Path | None = None) -> dict:
 def main() -> int:
     resources = generate()
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    with open(OUTPUT_FILE, "w") as f:
+    # encoding="utf-8" + newline="" — write LF-only, UTF-8 output regardless
+    # of platform. Without newline="", Windows text mode rewrites \n -> \r\n
+    # and YAML diffs become noisy across machines.
+    with open(OUTPUT_FILE, "w", encoding="utf-8", newline="") as f:
         # default_flow_style=False keeps the output in block YAML (readable,
         # diff-friendly). sort_keys=False preserves our intentional field order.
         yaml.safe_dump(resources, f, default_flow_style=False, sort_keys=False)

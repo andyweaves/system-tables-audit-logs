@@ -33,7 +33,8 @@ The DAB path is **additive** — the notebook and Terraform paths still work, an
 #### Prerequisites
 
 - Databricks CLI >= 0.288.0 (run `databricks --version` to check; install from [https://docs.databricks.com/dev-tools/cli/install.html](https://docs.databricks.com/dev-tools/cli/install.html))
-- Python >= 3.10 with `pyyaml>=6.0,<7.0` (the generator's only runtime dependency — `pip install -r bundle/requirements.txt`)
+- Python >= 3.10 on `PATH` as `python3` (macOS / Linux). On Windows, edit one line in `bundle/databricks.yml` — see Troubleshooting.
+- `pyyaml>=6.0,<7.0` (the generator's only runtime dependency — `pip install -r bundle/requirements.txt`)
 - An authenticated CLI profile (see `databricks auth login` or `~/.databrickscfg`)
 - A SQL Warehouse in the target workspace (you'll need its ID)
 - At least one email address for alert notifications
@@ -167,6 +168,17 @@ Some workspaces enforce an IP Access List that blocks CLI calls from untrusted s
 
 `**Error: no value assigned to required variable X`**
 You skipped step 4 of the copy-and-fill workflow. Create `.databricks/bundle/dev/variable-overrides.json` with `host`, `warehouse_id`, `alert_emails`.
+
+**`'python3' is not recognized` (Windows)**
+The default preinit command (`python3 src/generate_alerts.py` in `bundle/databricks.yml`) works out of the box on macOS / Linux, but Windows installs Python as `python` (and via the `py` launcher), not `python3`. There's no single command that works on all three OSes without a shim, so we default to `python3` and document the one-line Windows override:
+1. Open `bundle/databricks.yml`
+2. Find `experimental.scripts.preinit`
+3. Change `python3 src/generate_alerts.py` to `py src/generate_alerts.py` (or `python src/generate_alerts.py` if you've added Python to `PATH` directly)
+4. Save — do not commit unless you want to flip the default for the whole repo
+Verify `python --version` (or `py --version`) prints 3.10 or newer before running `databricks bundle validate`.
+
+**`python3: command not found` (macOS / Linux)**
+Python isn't installed, or you have a non-standard setup that exposes Python under a different name. On macOS install with `brew install python` (Homebrew sets up `python3` automatically). On Linux use your distro package manager (`apt install python3` / `dnf install python3` etc.). Don't symlink Python 2 to `python3`; the script uses PEP 604 `X | None` type hints that need 3.10+.
 
 `**Source IP address: X.X.X.X is blocked**`
 Your workspace has an IP Access List that does not include your current source IP. Either run from an IP in the allow list, or use the UI-delete fallback (see "Updating alerts" Option C) for cleanup operations.
