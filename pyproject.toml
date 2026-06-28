@@ -30,9 +30,12 @@ dependencies = [
 # Dev/test tooling. The lint/format/test commands documented above are gated in
 # CI; declaring the tools here (installable via `pip install -e ".[dev]"`) pins
 # the supported versions so contributors and CI provision the same toolchain.
+# Exact pins keep every contributor and CI on an identical toolchain (a ruff
+# minor bump can change lint/format output and break the gate); bump
+# deliberately.
 dev = [
-    "ruff>=0.6,<1.0",
-    "pytest>=8,<9",
+    "ruff==0.15.20",
+    "pytest==8.4.2",
 ]
 
 [tool.setuptools]
