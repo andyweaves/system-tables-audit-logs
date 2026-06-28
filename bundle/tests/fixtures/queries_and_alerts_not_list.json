@@ -1,0 +1,6 @@
+{
+  "queries_and_alerts": {
+    "name": "fixture_not_a_list",
+    "query": "SELECT 1"
+  }
+}

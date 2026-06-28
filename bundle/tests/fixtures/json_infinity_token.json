@@ -1,0 +1,13 @@
+{
+  "queries_and_alerts": [
+    {
+      "name": "fixture_infinity_token",
+      "query": "SELECT 1 AS total",
+      "alert": {
+        "name": "fixture_infinity_token_alert",
+        "rearm": "3600",
+        "options": {"column": "total", "op": ">", "value": Infinity}
+      }
+    }
+  ]
+}

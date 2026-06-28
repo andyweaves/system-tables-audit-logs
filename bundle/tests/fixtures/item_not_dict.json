@@ -1,0 +1,14 @@
+{
+  "queries_and_alerts": [
+    {
+      "name": "fixture_valid",
+      "query": "SELECT 1 AS total",
+      "alert": {
+        "name": "fixture_valid_alert",
+        "rearm": "3600",
+        "options": {"column": "total", "op": ">", "value": "0"}
+      }
+    },
+    "this item is a string, not a dict"
+  ]
+}

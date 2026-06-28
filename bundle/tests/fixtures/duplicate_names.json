@@ -1,0 +1,22 @@
+{
+  "queries_and_alerts": [
+    {
+      "name": "fixture_dup",
+      "query": "SELECT 1 AS total",
+      "alert": {
+        "name": "fixture_dup_alert_a",
+        "rearm": "3600",
+        "options": {"column": "total", "op": ">", "value": "0"}
+      }
+    },
+    {
+      "name": "fixture_dup",
+      "query": "SELECT 2 AS total",
+      "alert": {
+        "name": "fixture_dup_alert_b",
+        "rearm": "3600",
+        "options": {"column": "total", "op": ">", "value": "0"}
+      }
+    }
+  ]
+}

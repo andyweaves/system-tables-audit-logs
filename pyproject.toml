@@ -2,11 +2,44 @@
 # (bundle/src/, bundle/tests/). The notebook (notebooks/) and Terraform
 # (terraform/) paths predate this config and are excluded.
 #
-# Run from repo root:
+# Install dev/test tooling (ruff + pytest) from repo root:
+#   pip install -e ".[dev]"
+# (or, without the editable install: pip install "ruff>=0.6,<1.0" "pytest>=8,<9")
+#
+# Then run from repo root:
 #   ruff check                  # lint
 #   ruff format --check         # check formatting (no changes)
 #   ruff format                 # apply formatting
 #   pytest bundle/tests/        # run tests
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "system-tables-audit-logs-bundle"
+version = "0.0.0"
+description = "DAB-path preinit generator tooling for system tables audit log alerts."
+requires-python = ">=3.10"
+# Runtime dep mirrors bundle/requirements.txt (the preinit generator needs PyYAML).
+dependencies = [
+    "pyyaml>=6.0,<7.0",
+]
+
+[project.optional-dependencies]
+# Dev/test tooling. The lint/format/test commands documented above are gated in
+# CI; declaring the tools here (installable via `pip install -e ".[dev]"`) pins
+# the supported versions so contributors and CI provision the same toolchain.
+dev = [
+    "ruff>=0.6,<1.0",
+    "pytest>=8,<9",
+]
+
+[tool.setuptools]
+# The DAB generator lives in bundle/src (a regular package); bundle itself is an
+# implicit namespace package. Pin the package explicitly so an editable install
+# does not trip over setuptools auto-discovery on the multi-path repo layout.
+packages = ["bundle.src"]
 
 [tool.ruff]
 line-length = 88
