@@ -337,3 +337,106 @@ def test_real_config_every_alert_has_subscriptions_and_ok_empty_state():
         subs = evaluation["notification"]["subscriptions"]
         assert isinstance(subs, list), alert_key
         assert len(subs) >= 1, alert_key
+
+
+# ---------------------------------------------------------------------------
+# Test 11: Structural hardening — each new failure mode must surface a clean
+# ValueError (NOT a raw AttributeError/TypeError) that names the offending
+# entry index and/or name. Fail loud, not confusingly.
+# ---------------------------------------------------------------------------
+
+
+def test_queries_and_alerts_not_a_list_raises_clean_valueerror():
+    """`queries_and_alerts` present but not a list (here: a dict). Must raise
+    a ValueError naming the bad type, not let a dict get iterated as entries."""
+    with pytest.raises(ValueError, match="must be a list"):
+        generate(config_path=FIXTURES / "queries_and_alerts_not_list.json")
+
+
+def test_list_item_not_a_dict_raises_clean_valueerror():
+    """A non-dict list item (here: a string) must raise a ValueError naming
+    its index — NOT a confusing AttributeError from calling .get() on a str."""
+    with pytest.raises(ValueError, match=r"\[1\] must be a dict"):
+        generate(config_path=FIXTURES / "item_not_dict.json")
+
+
+def test_list_item_not_a_dict_is_valueerror_not_attributeerror():
+    """Pin the regression: the pre-hardening code raised AttributeError when
+    a non-dict reached entry.get('alert'). Assert it is now a ValueError and
+    explicitly NOT an AttributeError/TypeError."""
+    try:
+        generate(config_path=FIXTURES / "item_not_dict.json")
+    except ValueError:
+        pass
+    except (AttributeError, TypeError) as exc:  # pragma: no cover - failure path
+        pytest.fail(f"expected ValueError, got {type(exc).__name__}: {exc}")
+    else:  # pragma: no cover - failure path
+        pytest.fail("expected ValueError, no exception raised")
+
+
+def test_duplicate_entry_names_raise_clean_valueerror():
+    """Two entries sharing a `name` would silently overwrite in the output
+    dict. Must raise a ValueError naming the duplicate key and the index."""
+    with pytest.raises(ValueError, match=r"duplicate entry name 'fixture_dup'"):
+        generate(config_path=FIXTURES / "duplicate_names.json")
+
+
+def test_duplicate_entry_names_message_includes_index():
+    with pytest.raises(ValueError, match=r"\[1\]"):
+        generate(config_path=FIXTURES / "duplicate_names.json")
+
+
+@pytest.mark.parametrize(
+    "fixture",
+    [
+        "empty_alert.json",
+        "null_alert.json",
+        "string_alert.json",
+    ],
+)
+def test_present_but_malformed_alert_raises_clean_valueerror(fixture):
+    """An `alert` key that is present but is {}, null, or a string is a config
+    error — NOT a query-only entry. Must raise a ValueError naming the entry,
+    not silently drop the alert."""
+    with pytest.raises(ValueError, match="'alert' key is present"):
+        generate(config_path=FIXTURES / fixture)
+
+
+def test_non_finite_threshold_from_numeric_string_raises():
+    """A numeric string that float()-coerces to inf ("1e9999") must be
+    rejected by the math.isfinite() guard, naming the entry."""
+    with pytest.raises(ValueError, match="non-finite threshold"):
+        generate(config_path=FIXTURES / "non_finite_threshold.json")
+
+
+def test_non_finite_threshold_message_names_entry():
+    with pytest.raises(ValueError, match="fixture_non_finite"):
+        generate(config_path=FIXTURES / "non_finite_threshold.json")
+
+
+def test_json_infinity_token_rejected_at_load():
+    """A raw Infinity token in the JSON (which Python's json accepts by
+    default) must be rejected up front by parse_constant, not flow into a
+    double_value wrapper."""
+    with pytest.raises(ValueError, match="non-standard JSON constant"):
+        generate(config_path=FIXTURES / "json_infinity_token.json")
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_threshold_value_helper_rejects_non_finite_floats(bad):
+    """Direct unit coverage of the _threshold_value() non-finite guard."""
+    from bundle.src.generate_alerts import _threshold_value
+
+    with pytest.raises(ValueError, match="non-finite threshold"):
+        _threshold_value(bad, "some_entry")
+
+
+def test_query_only_entry_with_absent_alert_key_still_valid():
+    """Hardening must not break the legitimate query-only case: an entry with
+    the `alert` key entirely ABSENT is skipped silently (see
+    query_only_entry.json fixture)."""
+    resources = generate(config_path=FIXTURES / "query_only_entry.json")
+    alerts = resources["resources"]["alerts"]
+    assert len(alerts) == 1
+    assert "fixture_valid" in alerts
+    assert not any("query_only" in k for k in alerts)

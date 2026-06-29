@@ -1,0 +1,9 @@
+{
+  "queries_and_alerts": [
+    {
+      "name": "fixture_empty_alert",
+      "query": "SELECT 1 AS total",
+      "alert": {}
+    }
+  ]
+}

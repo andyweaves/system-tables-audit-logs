@@ -16,6 +16,7 @@ Design notes:
 """
 
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -51,7 +52,7 @@ REQUIRED_ALERT_FIELDS = [
 ]
 
 
-def _threshold_value(raw_value):
+def _threshold_value(raw_value, entry_name: str = "<unnamed>"):
     """Pack a raw JSON threshold value into the Alerts v2 typed wrapper.
 
     Alerts v2 rejects `string_value` thresholds when the source column is
@@ -60,15 +61,33 @@ def _threshold_value(raw_value):
     All thresholds in queries_and_alerts.json are numeric counts/sums stored
     as JSON strings; cast to double when parseable, otherwise fall back to
     string.
+
+    Non-finite numeric thresholds (NaN, Infinity) are rejected with a
+    ValueError naming the entry: a NaN/Inf comparison threshold can never
+    evaluate sensibly and almost always signals a corrupted config. (The
+    JSON load also rejects NaN/Infinity tokens up front via parse_constant,
+    so these only arise from native float() coercion of an out-of-range
+    numeric string such as "1e9999".)
     """
     if isinstance(raw_value, bool):
         return {"bool_value": raw_value}
     if isinstance(raw_value, (int, float)):
+        if not math.isfinite(raw_value):
+            raise ValueError(
+                f"Entry {entry_name!r}: non-finite threshold value {raw_value!r} "
+                f"(NaN/Infinity not allowed)"
+            )
         return {"double_value": float(raw_value)}
     try:
-        return {"double_value": float(raw_value)}
+        coerced = float(raw_value)
     except (TypeError, ValueError):
         return {"string_value": str(raw_value)}
+    if not math.isfinite(coerced):
+        raise ValueError(
+            f"Entry {entry_name!r}: non-finite threshold value {raw_value!r} "
+            f"(NaN/Infinity not allowed)"
+        )
+    return {"double_value": coerced}
 
 
 def _map_operator(op_symbol: str) -> str:
@@ -153,7 +172,9 @@ def _build_alert_resource(entry: dict) -> dict:
             "comparison_operator": _map_operator(options["op"]),
             "source": {"name": options["column"]},
             "threshold": {
-                "value": _threshold_value(options["value"]),
+                "value": _threshold_value(
+                    options["value"], entry.get("name", "<unnamed>")
+                ),
             },
             # Empty result (no matching audit events) means "nothing to alert
             # on", not an evaluation failure. Default is ERROR, which surfaces
@@ -202,8 +223,18 @@ def generate(config_path: Path | None = None) -> dict:
     # cp1252) and the JSON contains non-ASCII characters in some custom
     # body templates. Explicit UTF-8 keeps the read identical across
     # macOS, Linux, and Windows.
+    # parse_constant rejects the non-standard JSON tokens NaN, Infinity, and
+    # -Infinity that Python's json module accepts by default. A threshold of
+    # Infinity can never evaluate sensibly; fail loud at load time rather than
+    # let it flow into a double_value wrapper.
+    def _reject_constant(token):
+        raise ValueError(
+            f"{config_path}: non-standard JSON constant {token!r} is not allowed "
+            f"(NaN/Infinity)"
+        )
+
     with open(config_path, encoding="utf-8") as f:
-        config = json.load(f)
+        config = json.load(f, parse_constant=_reject_constant)
 
     if not isinstance(config, dict) or "queries_and_alerts" not in config:
         actual = (
@@ -214,12 +245,42 @@ def generate(config_path: Path | None = None) -> dict:
             f"top-level 'queries_and_alerts' key. Got: {actual}"
         )
 
+    # The top-level value must be a list of dict entries. Validate the shape
+    # before iterating so a non-list (e.g. a dict or string) or a non-dict
+    # item fails with an actionable message instead of an opaque AttributeError
+    # when .get(...) is called on it below.
+    entries = config["queries_and_alerts"]
+    if not isinstance(entries, list):
+        raise ValueError(
+            f"{config_path}: 'queries_and_alerts' must be a list, got "
+            f"{type(entries).__name__}"
+        )
+
     alerts_out = {}
-    for entry in config["queries_and_alerts"]:
-        # Query-only entries (no `alert` sub-object) are valid in the JSON
+    seen_names = {}
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            raise ValueError(
+                f"{config_path}: 'queries_and_alerts'[{index}] must be a dict, "
+                f"got {type(entry).__name__}"
+            )
+
+        # Query-only entries (the `alert` key is ABSENT) are valid in the JSON
         # schema — they predate the alerting feature. Skip them silently.
-        if not entry.get("alert"):
+        # A present `alert` key, however, MUST be a non-empty dict: a
+        # present-but-falsy/malformed value ({}, null, a string) is a config
+        # error, not a query-only entry, so fail loud rather than silently
+        # dropping the alert.
+        if "alert" not in entry:
             continue
+        alert = entry["alert"]
+        if not isinstance(alert, dict) or not alert:
+            raise ValueError(
+                f"'queries_and_alerts'[{index}] (name="
+                f"{entry.get('name', '<unnamed>')!r}): 'alert' key is present but "
+                f"is not a non-empty dict (got {alert!r}). Omit the key entirely "
+                f"for a query-only entry."
+            )
 
         # Validate before building so callers see a clear ValueError with
         # entry name + field path, not a downstream KeyError or AttributeError.
@@ -230,7 +291,15 @@ def generate(config_path: Path | None = None) -> dict:
         # That's intentional — Alerts v2 uses display_name as identity from
         # the user's perspective, but DAB needs a stable key, and the JSON
         # entry name is the most stable thing we have.
-        alerts_out[entry["name"]] = _build_alert_resource(entry)
+        name = entry["name"]
+        if name in seen_names:
+            raise ValueError(
+                f"{config_path}: duplicate entry name {name!r} at "
+                f"'queries_and_alerts'[{index}] (first seen at index "
+                f"{seen_names[name]}). Resource keys must be unique."
+            )
+        seen_names[name] = index
+        alerts_out[name] = _build_alert_resource(entry)
 
     return {"resources": {"alerts": alerts_out}}
 
